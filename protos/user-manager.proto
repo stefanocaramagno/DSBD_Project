@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package flights.usermanager;
+
+service UserValidationService {
+  rpc CheckUserExists (UserRequest) returns (UserResponse);
+}
+
+message UserRequest {
+  string email = 1;
+}
+
+message UserResponse {
+  bool exists = 1;
+}
