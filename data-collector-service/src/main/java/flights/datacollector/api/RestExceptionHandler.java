@@ -1,6 +1,7 @@
 package flights.datacollector.api;
 
 import flights.datacollector.exception.AirportNotFoundException;
+import flights.datacollector.exception.FlightNotFoundException;
 import flights.datacollector.exception.InterestNotFoundException;
 import flights.datacollector.exception.UserNotFoundException;
 
@@ -63,5 +64,25 @@ public class RestExceptionHandler {
                 "message", ex.getMessage()
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(FlightNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleFlightNotFound(FlightNotFoundException ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", LocalDateTime.now().toString(),
+                "error", "Flight not found",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", LocalDateTime.now().toString(),
+                "error", "Invalid request",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 }

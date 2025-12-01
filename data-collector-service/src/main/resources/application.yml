@@ -32,7 +32,10 @@ grpc:
       negotiationType: plaintext
 
 opensky:
-  base-url: https://opensky-network.org/api
-  username: stefanocaramagno-api-client   # (da sostituire o lasciare vuoto)
-  password: 4zZ49gQqUZ5MmqBp7tNF0ERJel6eiCSl   # (da sostituire o lasciare vuoto)
+  auth-url: "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+  api-base-url: "https://opensky-network.org/api"
+  client-id: "stefanocaramagno-api-client"
+  client-secret: "yi9yeSODPHIzWHQq6YAnaDYZOpq9061l"
+
+
 
