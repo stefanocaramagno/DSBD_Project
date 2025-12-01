@@ -2,5 +2,23 @@ spring:
   application:
     name: data-collector-service
 
+  datasource:
+    url: jdbc:postgresql://localhost:5432/datadb
+    username: user        # stesso utente del container postgres
+    password: password    # stessa password del container postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
 server:
   port: 8082
