@@ -7,19 +7,46 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      # POSTGRES_DB non è obbligatorio; useremo uno script di init per creare i DB applicativi
+      POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      # PRIMA:
+      # test: ["CMD-SHELL", "pg_isready -U user"]
+      # DOPO (controlliamo il DB 'postgres', che esiste sempre):
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   user-manager-service:
-    build: ../user-manager-service
+    build:
+      context: ../user-manager-service
+      dockerfile: Dockerfile
+    container_name: dsbd_user_manager
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8081:8081"
 
   data-collector-service:
-    build: ../data-collector-service
+    build:
+      context: ../data-collector-service
+      dockerfile: Dockerfile
+    container_name: dsbd_data_collector
     depends_on:
-      - postgres
-      - user-manager-service
+      postgres:
+        condition: service_healthy
+      user-manager-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8082:8082"
+
