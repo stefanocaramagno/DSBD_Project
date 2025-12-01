@@ -72,4 +72,9 @@ public class UserService {
                 user.getCreatedAt()
         );
     }
+
+    @Transactional(readOnly = true)
+    public boolean userExists(String email) {
+        return userRepository.existsById(email);
+    }
 }
