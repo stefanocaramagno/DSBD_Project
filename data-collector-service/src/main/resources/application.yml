@@ -1,3 +1,6 @@
 spring:
   application:
     name: data-collector-service
+
+server:
+  port: 8082
