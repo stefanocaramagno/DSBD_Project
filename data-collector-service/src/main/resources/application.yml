@@ -22,3 +22,11 @@ spring:
 
 server:
   port: 8082
+
+grpc:
+  server:
+    port: -1          # disabilita il server gRPC esterno
+  client:
+    user-manager:
+      address: static://localhost:9090
+      negotiationType: plaintext

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "flights.usermanager";
+
+package flights.usermanager;
+
+service UserValidationService {
+  rpc CheckUserExists (UserRequest) returns (UserResponse);
+}
+
+message UserRequest {
+  string email = 1;
+}
+
+message UserResponse {
+  bool exists = 1;
+}
+
