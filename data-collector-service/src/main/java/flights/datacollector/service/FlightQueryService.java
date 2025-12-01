@@ -1,6 +1,7 @@
 package flights.datacollector.service;
 
 import flights.datacollector.api.dto.AverageFlightsResponse;
+import flights.datacollector.api.dto.FlightRecordResponse;
 import flights.datacollector.api.dto.LastFlightResponse;
 import flights.datacollector.domain.Airport;
 import flights.datacollector.domain.FlightRecord;
@@ -13,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FlightQueryService {
@@ -84,6 +87,51 @@ public class FlightQueryService {
                 from,
                 to
         );
+    }
+
+        @Transactional(readOnly = true)
+        public List<FlightRecordResponse> getFlights(String airportCode,
+                                                    String direction,
+                                                    LocalDateTime from,
+                                                    LocalDateTime to) {
+            String normalizedDirection = normalizeDirection(direction);
+
+            // default: ultimi 1 giorno se from/to non specificati
+            LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+            if (to == null) {
+                to = nowUtc;
+            }
+            if (from == null) {
+                from = to.minusDays(1);
+            }
+            if (from.isAfter(to)) {
+                throw new IllegalArgumentException("'from' must be before or equal to 'to'");
+            }
+
+            Airport airport = airportRepository.findByCode(airportCode)
+                    .orElseThrow(() -> new AirportNotFoundException(airportCode));
+
+            List<FlightRecord> records = flightRecordRepository
+                    .findByAirportAndDirectionAndActualTimeBetweenOrderByActualTimeDesc(
+                            airport,
+                            normalizedDirection,
+                            from,
+                            to
+                    );
+
+            return records.stream()
+                    .map(record -> new FlightRecordResponse(
+                        airport.getCode(),
+                        record.getDirection(),
+                        record.getFlightNumber(),
+                        record.getExternalFlightId(),
+                        record.getScheduledTime(),
+                        record.getActualTime(),
+                        record.getStatus(),
+                        record.getDelayMinutes(),
+                        record.getCollectedAt()
+                    ))
+                    .collect(Collectors.toList());
     }
 
     private String normalizeDirection(String direction) {

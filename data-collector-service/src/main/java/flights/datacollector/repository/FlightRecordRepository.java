@@ -34,4 +34,11 @@ public interface FlightRecordRepository extends JpaRepository<FlightRecord, Long
             LocalDateTime from,
             LocalDateTime to
     );
+
+    List<FlightRecord> findByAirportAndDirectionAndActualTimeBetweenOrderByActualTimeDesc(
+            Airport airport,
+            String direction,
+            LocalDateTime from,
+            LocalDateTime to
+    );
 }
