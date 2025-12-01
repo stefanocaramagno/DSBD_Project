@@ -30,3 +30,9 @@ grpc:
     user-manager:
       address: static://localhost:9090
       negotiationType: plaintext
+
+opensky:
+  base-url: https://opensky-network.org/api
+  username: stefanocaramagno-api-client   # (da sostituire o lasciare vuoto)
+  password: 4zZ49gQqUZ5MmqBp7tNF0ERJel6eiCSl   # (da sostituire o lasciare vuoto)
+
