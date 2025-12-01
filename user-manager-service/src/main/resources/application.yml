@@ -2,5 +2,23 @@ spring:
   application:
     name: user-manager-service
 
+  datasource:
+    url: jdbc:postgresql://localhost:5432/userdb
+    username: user
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate          # Lo schema viene gestito da Flyway
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true                # Utile in sviluppo per vedere le query
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
 server:
   port: 8081
