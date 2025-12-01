@@ -30,3 +30,4 @@ grpc:
     user-manager:
       address: static://localhost:9090
       negotiationType: plaintext
+
