@@ -3,9 +3,11 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16
+    container_name: dsbd_postgres
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+      # POSTGRES_DB non è obbligatorio; useremo uno script di init per creare i DB applicativi
     ports:
       - "5432:5432"
     volumes:
