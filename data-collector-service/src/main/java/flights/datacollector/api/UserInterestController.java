@@ -32,7 +32,6 @@ public class UserInterestController {
 
     /**
      * Rimuove l'interesse di un utente per un aeroporto.
-     * Idempotente: se non esiste, la chiamata non produce errori.
      */
     @DeleteMapping
     public ResponseEntity<Void> removeInterest(
@@ -40,7 +39,7 @@ public class UserInterestController {
             @RequestParam("airportCode") String airportCode
     ) {
         userInterestService.removeInterest(userEmail, airportCode);
-        return ResponseEntity.noContent().build(); // sempre 204
+        return ResponseEntity.noContent().build(); 
     }
 
     /**

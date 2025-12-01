@@ -1,7 +1,9 @@
 package flights.datacollector.api;
 
 import flights.datacollector.exception.AirportNotFoundException;
+import flights.datacollector.exception.InterestNotFoundException;
 import flights.datacollector.exception.UserNotFoundException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -51,5 +53,15 @@ public class RestExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(InterestNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleInterestNotFound(InterestNotFoundException ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", LocalDateTime.now().toString(),
+                "error", "Interest not found",
+                "message", ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 }

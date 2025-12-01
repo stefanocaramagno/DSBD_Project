@@ -9,6 +9,7 @@ public class UserRegistrationRequest {
     @NotBlank
     private String email;
 
+    @NotBlank
     private String name;
 
     public UserRegistrationRequest() {

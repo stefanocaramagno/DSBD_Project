@@ -6,6 +6,7 @@ import flights.datacollector.client.UserValidationGrpcClient;
 import flights.datacollector.domain.Airport;
 import flights.datacollector.domain.UserAirportInterest;
 import flights.datacollector.exception.AirportNotFoundException;
+import flights.datacollector.exception.InterestNotFoundException;
 import flights.datacollector.exception.UserNotFoundException;
 import flights.datacollector.repository.AirportRepository;
 import flights.datacollector.repository.UserAirportInterestRepository;
@@ -77,12 +78,17 @@ public class UserInterestService {
 
     @Transactional
     public void removeInterest(String userEmail, String airportCode) {
-        airportRepository.findByCode(airportCode).ifPresent(airport -> {
-            interestRepository.findByUserEmailAndAirport(userEmail, airport)
-                    .ifPresent(interestRepository::delete);
-        });
-        // Nessuna eccezione lanciata: qualunque sia lo stato del DB,
-        // la DELETE è idempotente e il controller risponderà sempre 204.
+        // 1. Controllo aeroporto: se non esiste → 404
+        Airport airport = airportRepository.findByCode(airportCode)
+                .orElseThrow(() -> new AirportNotFoundException(airportCode));
+
+        // 2. Controllo interesse: se non esiste → 404
+        UserAirportInterest existing = interestRepository
+                .findByUserEmailAndAirport(userEmail, airport)
+                .orElseThrow(() -> new InterestNotFoundException(userEmail, airportCode));
+
+        // 3. Se esiste, lo cancello
+        interestRepository.delete(existing);
     }
 
     @Transactional(readOnly = true)
