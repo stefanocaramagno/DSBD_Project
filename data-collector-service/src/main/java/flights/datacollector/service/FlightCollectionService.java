@@ -30,14 +30,6 @@ public class FlightCollectionService {
         this.openSkyClient = openSkyClient;
     }
 
-    /**
-     * Colleziona i voli (arrivi e partenze) per tutti gli aeroporti per i quali
-     * esiste almeno un interesse da parte di qualche utente.
-     *
-     * Il chiamante fornisce esplicitamente l'intervallo temporale [begin, end]
-     * in termini di Instant (UTC). Questo rende il servizio riutilizzabile sia
-     * dallo scheduler che, eventualmente, da invocazioni manuali/test.
-     */
     @Transactional
     public void collectFlightsForAllInterestedAirports(Instant begin, Instant end) {
         List<Airport> airports = interestRepository.findDistinctAirportsOfInterest();

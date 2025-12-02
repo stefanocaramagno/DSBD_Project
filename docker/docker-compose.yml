@@ -3,20 +3,16 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16
-    container_name: dsbd_postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres
+    container_name: postgres
+    env_file:
+      - ./env/postgres.env
     ports:
       - "5432:5432"
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
-      # PRIMA:
-      # test: ["CMD-SHELL", "pg_isready -U user"]
-      # DOPO (controlliamo il DB 'postgres', che esiste sempre):
-      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      # Healthcheck sul database 'POSTGRES_DB' usando le credenziali di ambiente
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,10 +22,12 @@ services:
     build:
       context: ../user-manager-service
       dockerfile: Dockerfile
-    container_name: dsbd_user_manager
+    container_name: user_manager
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - ./env/services.env
     environment:
       SPRING_PROFILES_ACTIVE: docker
     ports:
@@ -39,14 +37,15 @@ services:
     build:
       context: ../data-collector-service
       dockerfile: Dockerfile
-    container_name: dsbd_data_collector
+    container_name: data_collector
     depends_on:
       postgres:
         condition: service_healthy
       user-manager-service:
         condition: service_started
+    env_file:
+      - ./env/services.env
     environment:
       SPRING_PROFILES_ACTIVE: docker
     ports:
       - "8082:8082"
-

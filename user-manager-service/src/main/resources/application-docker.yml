@@ -1,3 +1,5 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/userdb
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${USER_DB_NAME:userdb}
+    username: ${DB_USERNAME:user}
+    password: ${DB_PASSWORD:password}

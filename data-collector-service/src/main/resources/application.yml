@@ -32,10 +32,11 @@ grpc:
       negotiationType: plaintext
 
 opensky:
-  auth-url: "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
-  api-base-url: "https://opensky-network.org/api"
-  client-id: "stefanocaramagno-api-client"
-  client-secret: "yi9yeSODPHIzWHQq6YAnaDYZOpq9061l"
+  auth-url: ${OPENSKY_AUTH_URL:https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token}
+  api-base-url: ${OPENSKY_API_URL:https://opensky-network.org/api}
+  client-id: ${OPENSKY_CLIENT_ID}
+  client-secret: ${OPENSKY_CLIENT_SECRET}
+
 
 
 
