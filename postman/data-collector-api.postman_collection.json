@@ -1,0 +1,886 @@
+{
+	"info": {
+		"_postman_id": "e319023a-287c-4a8c-9faf-23f10ed5aabc",
+		"name": "data-collector-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "40109472"
+	},
+	"item": [
+		{
+			"name": "DC-01 – Registrazione interesse (caso positivo)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"mario.rossi@example.com\",\r\n  \"airportCode\": \"LICC\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8082/api/interests?=",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-02 – Registrazione interesse già esistente",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"mario.rossi@example.com\",\r\n  \"airportCode\": \"LICC\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8082/api/interests?=",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-03 – Registrazione interesse (utente inesistente)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"unknown.user@example.com\",\r\n  \"airportCode\": \"LICC\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8082/api/interests"
+			},
+			"response": []
+		},
+		{
+			"name": "DC-04 – Registrazione interesse (email non valida)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"not-an-email\",\r\n  \"airportCode\": \"LICC\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8082/api/interests"
+			},
+			"response": []
+		},
+		{
+			"name": "DC-05 - Registrazione interesse (email mancante)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"\",\r\n  \"airportCode\": \"LICC\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8082/api/interests"
+			},
+			"response": []
+		},
+		{
+			"name": "DC-06 – Registrazione interesse (aeroporto inesistente)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"mario.rossi@example.com\",\r\n  \"airportCode\": \"XXX\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8082/api/interests"
+			},
+			"response": []
+		},
+		{
+			"name": "DC-07 – Registrazione interesse (aeroporto mancante)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"userEmail\": \"mario.rossi@example.com\",\r\n  \"airportCode\": \"\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8082/api/interests"
+			},
+			"response": []
+		},
+		{
+			"name": "DC-08 – Recupero lista interessi utente (uno o più interessi)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/interests?userEmail=mario.rossi@example.com",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "userEmail",
+							"value": "mario.rossi@example.com"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-09 – Recupero lista interessi utente (senza interessi)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/interests?userEmail=no.interests@example.com",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "userEmail",
+							"value": "no.interests@example.com"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-10 – Cancellazione interesse esistente",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "",
+						"value": "",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": []
+				},
+				"url": {
+					"raw": "http://localhost:8082/api/interests?userEmail=mario.rossi@example.com&airportCode=LICC",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "userEmail",
+							"value": "mario.rossi@example.com"
+						},
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-11 – Cancellazione interesse già cancellato",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/interests?userEmail=mario.rossi@example.com&airportCode=CTA",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "userEmail",
+							"value": "mario.rossi@example.com"
+						},
+						{
+							"key": "airportCode",
+							"value": "CTA"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-12 – Cancellazione interesse (aeroporto inesistente)",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/interests?userEmail=mario.rossi@example.com&airportCode=XXX",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"interests"
+					],
+					"query": [
+						{
+							"key": "userEmail",
+							"value": "mario.rossi@example.com"
+						},
+						{
+							"key": "airportCode",
+							"value": "XXX"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-13 – Recupero ultimo volo in arrivo (caso positivo)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=LICC&direction=ARRIVAL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-14 – Recupero ultimo volo in partenza (caso positivo)",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=LICC&direction=DEPARTURE",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "DEPARTURE"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-15 – Recupero ultimo volo in arrivo (direzione minuscola)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=LICC&direction=arrival",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "arrival"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-16 – Recupero ultimo volo in arrivo (aereporto inesistente)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=XXXX&direction=ARRIVAL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "XXXX"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-17 – Recupero ultimo volo in arrivo (aereporto/direzione assente)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=LIRF&direction=ARRIVAL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LIRF"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-18 – Recupero ultimo volo (direzione non valida)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/last?airportCode=LICC&direction=FOO",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"last"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "FOO"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-18 – Calcolo media dei voli negli ultimi X giorni (caso positivo)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/average?airportCode=LICC&direction=ARRIVAL&days=7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"average"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						},
+						{
+							"key": "days",
+							"value": "7"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-19 – Calcolo media dei voli negli ultimi  X giorni (X non valido)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/average?airportCode=LICC&direction=ARRIVAL&days=0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"average"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						},
+						{
+							"key": "days",
+							"value": "0"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-20 – Calcolo media dei voli negli ultimi  X giorni (aereoporto non valido)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/average?airportCode=XXXX&direction=DEPARTURE&days=7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"average"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "XXXX"
+						},
+						{
+							"key": "direction",
+							"value": "DEPARTURE"
+						},
+						{
+							"key": "days",
+							"value": "7"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-21 – Calcolo media dei voli negli ultimi  X giorni (direzione non valida)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights/average?airportCode=LICC&direction=FOO&days=7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights",
+						"average"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "FOO"
+						},
+						{
+							"key": "days",
+							"value": "7"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-22 – Recupero lista arrivi senza intervallo temporale (caso positivo)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights?airportCode=LICC&direction=ARRIVAL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-23 – Recupero lista partenze con intervallo temporale esplicito (caso positivo)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights?airportCode=LICC&direction=DEPARTURE&from=2025-11-19T00:00:00&to=2025-11-20T23:59:59",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "DEPARTURE"
+						},
+						{
+							"key": "from",
+							"value": "2025-11-19T00:00:00"
+						},
+						{
+							"key": "to",
+							"value": "2025-11-20T23:59:59"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-24 – Recupero lista arrivi (aeroporto inesistente)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights?airportCode=XXXX&direction=ARRIVAL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "XXXX"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-25 – Recupero lista voli (direzione non valida)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights?airportCode=LICC&direction=FOO",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "FOO"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DC-26 – Recupero lista voli con intervallo temporale esplicito (nessun volo presente)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8082/api/flights?airportCode=LICC&direction=ARRIVAL&from=2000-01-01T00:00:00&to=2000-01-02T00:00:00",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"api",
+						"flights"
+					],
+					"query": [
+						{
+							"key": "airportCode",
+							"value": "LICC"
+						},
+						{
+							"key": "direction",
+							"value": "ARRIVAL"
+						},
+						{
+							"key": "from",
+							"value": "2000-01-01T00:00:00"
+						},
+						{
+							"key": "to",
+							"value": "2000-01-02T00:00:00"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,190 @@
+{
+	"info": {
+		"_postman_id": "60b1eeb8-b878-465f-ad2e-26f5dd85d4c9",
+		"name": "user-manager-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "40109472"
+	},
+	"item": [
+		{
+			"name": "UM-01 – Registrazione utente (caso positivo)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"mario.rossi@example.com\",\r\n  \"name\": \"Mario Rossi\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-02 – Registrazione utente già esistente",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"mario.rossi@example.com\",\r\n  \"name\": \"Mario Rossi duplicato\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-03 – Registrazione utente (email non valida)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"not-an-email\",\r\n  \"name\": \"Anna Verdi\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-04 – Registrazione utente (email mancante)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"\",\r\n  \"name\": \"Anna Verdi\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-04 – Registrazione utente (nome mancante)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"anna.verdi@example.com\",\r\n  \"name\": \"\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-05 – Recupero utente esistente",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users/mario.rossi@example.com"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-06 – Recupero utente inesistente",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:8081/api/users/unknown.user@example.com"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-09 – Cancellazione utente esistente",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": "http://localhost:8081/api/users/mario.rossi@example.com"
+			},
+			"response": []
+		},
+		{
+			"name": "UM-10 – Cancellazione utente già cancellato",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": "http://localhost:8081/api/users/mario.rossi@example.com"
+			},
+			"response": []
+		}
+	]
+}
