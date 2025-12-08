@@ -31,6 +31,17 @@ public class UserInterestController {
     }
 
     /**
+     * Aggiorna le soglie (high-value / low-value) per un interesse esistente.
+     */
+    @PutMapping
+    public ResponseEntity<UserInterestResponse> updateInterest(
+            @Valid @RequestBody UserInterestRequest request
+    ) {
+        UserInterestResponse response = userInterestService.updateInterestThresholds(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Rimuove l'interesse di un utente per un aeroporto.
      */
     @DeleteMapping
