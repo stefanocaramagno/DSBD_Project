@@ -12,6 +12,7 @@
     <modules>
         <module>user-manager-service</module>
         <module>data-collector-service</module>
-	    <module>alert-system-service</module>
+        <module>alert-system-service</module>
+        <module>alert-notifier-service</module>
     </modules>
 </project>
