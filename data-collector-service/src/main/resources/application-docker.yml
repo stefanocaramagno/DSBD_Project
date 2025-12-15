@@ -4,7 +4,19 @@ spring:
     username: ${DB_USERNAME:user}
     password: ${DB_PASSWORD:password}
 
+  kafka:
+    # Bootstrap server ottenuto da variabile d'ambiente, con default sul container "kafka"
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
 grpc:
   client:
     user-manager:
       address: static://user-manager-service:9090
+
+app:
+  alerts:
+    # Topic Kafka su cui il Data Collector pubblica gli aggiornamenti per il sistema di alert
+    topic: to-alert-system

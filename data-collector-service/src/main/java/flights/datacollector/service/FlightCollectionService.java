@@ -4,6 +4,7 @@ import flights.datacollector.client.OpenSkyClient;
 import flights.datacollector.client.dto.OpenSkyFlightDto;
 import flights.datacollector.domain.Airport;
 import flights.datacollector.domain.FlightRecord;
+import flights.datacollector.messaging.dto.AirportFlightsWindowSnapshot;
 import flights.datacollector.repository.FlightRecordRepository;
 import flights.datacollector.repository.UserAirportInterestRepository;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,10 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Servizio responsabile della raccolta dei voli da OpenSky
+ * e della persistenza nel database locale.
+ */
 @Service
 public class FlightCollectionService {
 
@@ -30,21 +35,36 @@ public class FlightCollectionService {
         this.openSkyClient = openSkyClient;
     }
 
-    @Transactional
-    public void collectFlightsForAllInterestedAirports(Instant begin, Instant end) {
+    /**
+     * Colleziona i voli per tutti gli aeroporti di interesse degli utenti
+     * nella finestra [begin, end] e restituisce, per ciascun aeroporto,
+     * uno snapshot aggregato dei voli raccolti.
+     *
+     * @param begin inizio finestra (Instant UTC)
+     * @param end   fine finestra (Instant UTC)
+     * @return lista di snapshot (uno per aeroporto con almeno un volo)
+     */
+    public List<AirportFlightsWindowSnapshot> collectFlightsForAllInterestedAirports(Instant begin, Instant end) {
         List<Airport> airports = interestRepository.findDistinctAirportsOfInterest();
+        List<AirportFlightsWindowSnapshot> snapshots = new ArrayList<>();
 
         for (Airport airport : airports) {
-            collectFlightsForAirport(airport, begin, end);
+            AirportFlightsWindowSnapshot snapshot = collectFlightsForAirport(airport, begin, end);
+            if (snapshot != null) {
+                snapshots.add(snapshot);
+            }
         }
+
+        return snapshots;
     }
 
     /**
      * Colleziona i voli (arrivi e partenze) per un singolo aeroporto di interesse
-     * nell'intervallo [begin, end].
+     * nell'intervallo [begin, end] e restituisce il corrispondente snapshot
+     * (numero di arrivi e partenze nella finestra).
      */
     @Transactional
-    public void collectFlightsForAirport(Airport airport, Instant begin, Instant end) {
+    public AirportFlightsWindowSnapshot collectFlightsForAirport(Airport airport, Instant begin, Instant end) {
         String airportCode = airport.getCode();
 
         // Chiamata a OpenSky per arrivi
@@ -55,19 +75,33 @@ public class FlightCollectionService {
 
         List<FlightRecord> toSave = new ArrayList<>();
 
-        for (OpenSkyFlightDto dto : arrivals) {
-            FlightRecord record = mapToFlightRecord(dto, airport, "ARRIVAL");
-            toSave.add(record);
+        if (arrivals != null) {
+            for (OpenSkyFlightDto dto : arrivals) {
+                FlightRecord record = mapToFlightRecord(dto, airport, "ARRIVAL");
+                toSave.add(record);
+            }
         }
 
-        for (OpenSkyFlightDto dto : departures) {
-            FlightRecord record = mapToFlightRecord(dto, airport, "DEPARTURE");
-            toSave.add(record);
+        if (departures != null) {
+            for (OpenSkyFlightDto dto : departures) {
+                FlightRecord record = mapToFlightRecord(dto, airport, "DEPARTURE");
+                toSave.add(record);
+            }
         }
 
         if (!toSave.isEmpty()) {
             flightRecordRepository.saveAll(toSave);
         }
+
+        int arrivalsCount = arrivals != null ? arrivals.size() : 0;
+        int departuresCount = departures != null ? departures.size() : 0;
+
+        if (arrivalsCount == 0 && departuresCount == 0) {
+            // Nessun volo per questo aeroporto nella finestra
+            return null;
+        }
+
+        return new AirportFlightsWindowSnapshot(airportCode, arrivalsCount, departuresCount);
     }
 
     /**
