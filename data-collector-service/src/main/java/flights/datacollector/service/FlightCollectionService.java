@@ -17,8 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Servizio responsabile della raccolta dei voli da OpenSky
- * e della persistenza nel database locale.
+ * Servizio che coordina la raccolta dei voli da OpenSky per tutti
+ * gli aeroporti di interesse e persiste i record nel Data Collector DB.
+ *
+ * Inoltre, restituisce per ogni aeroporto uno snapshot aggregato dei voli
+ * nella finestra temporale considerata, da usare per notificare l'Alert System.
  */
 @Service
 public class FlightCollectionService {
@@ -36,106 +39,93 @@ public class FlightCollectionService {
     }
 
     /**
-     * Colleziona i voli per tutti gli aeroporti di interesse degli utenti
-     * nella finestra [begin, end] e restituisce, per ciascun aeroporto,
-     * uno snapshot aggregato dei voli raccolti.
+     * Punto di ingresso principale: raccoglie i voli per tutti gli aeroporti
+     * configurati come "di interesse", li salva nel database e costruisce
+     * per ciascun aeroporto uno snapshot aggregato (arrivi/partenze).
      *
-     * @param begin inizio finestra (Instant UTC)
-     * @param end   fine finestra (Instant UTC)
-     * @return lista di snapshot (uno per aeroporto con almeno un volo)
+     * Il Circuit Breaker è applicato a livello di OpenSkyClient:
+     * se OpenSky non è disponibile, per quella finestra otterremo liste vuote
+     * e il sistema continuerà a funzionare senza bloccarsi.
      */
+    @Transactional
     public List<AirportFlightsWindowSnapshot> collectFlightsForAllInterestedAirports(Instant begin, Instant end) {
-        List<Airport> airports = interestRepository.findDistinctAirportsOfInterest();
+        List<Airport> airportsOfInterest = interestRepository.findDistinctAirportsOfInterest();
+        LocalDateTime collectedAt = LocalDateTime.now(ZoneOffset.UTC);
+
+        List<FlightRecord> recordsToPersist = new ArrayList<>();
         List<AirportFlightsWindowSnapshot> snapshots = new ArrayList<>();
 
-        for (Airport airport : airports) {
-            AirportFlightsWindowSnapshot snapshot = collectFlightsForAirport(airport, begin, end);
-            if (snapshot != null) {
+        for (Airport airport : airportsOfInterest) {
+            String airportIcao = airport.getCode();
+
+            int arrivalsCount = 0;
+            int departuresCount = 0;
+
+            // Arrivi
+            List<OpenSkyFlightDto> arrivals =
+                    openSkyClient.getArrivals(airportIcao, begin, end);
+            for (OpenSkyFlightDto dto : arrivals) {
+                FlightRecord record = mapOpenSkyFlightToFlightRecord(
+                        dto, airport, "ARRIVAL", collectedAt
+                );
+                recordsToPersist.add(record);
+                arrivalsCount++;
+            }
+
+            // Partenze
+            List<OpenSkyFlightDto> departures =
+                    openSkyClient.getDepartures(airportIcao, begin, end);
+            for (OpenSkyFlightDto dto : departures) {
+                FlightRecord record = mapOpenSkyFlightToFlightRecord(
+                        dto, airport, "DEPARTURE", collectedAt
+                );
+                recordsToPersist.add(record);
+                departuresCount++;
+            }
+
+            // Se per questo aeroporto abbiamo almeno un volo raccolto,
+            // creiamo lo snapshot aggregato.
+            if (arrivalsCount > 0 || departuresCount > 0) {
+                AirportFlightsWindowSnapshot snapshot =
+                        new AirportFlightsWindowSnapshot(airportIcao, arrivalsCount, departuresCount);
                 snapshots.add(snapshot);
             }
+        }
+
+        if (!recordsToPersist.isEmpty()) {
+            flightRecordRepository.saveAll(recordsToPersist);
         }
 
         return snapshots;
     }
 
     /**
-     * Colleziona i voli (arrivi e partenze) per un singolo aeroporto di interesse
-     * nell'intervallo [begin, end] e restituisce il corrispondente snapshot
-     * (numero di arrivi e partenze nella finestra).
+     * Mappa un singolo DTO di OpenSky nel dominio interno FlightRecord.
+     * Per semplicità:
+     * - usiamo lastSeen come "tempo effettivo" dell'evento;
+     * - non disponiamo di un vero orario schedulato, quindi lo
+     *   impostiamo uguale all'effettivo;
+     * - status fisso "ON_TIME" e delayMinutes = 0.
+     * Queste scelte sono documentate e possono essere affinate in seguito.
      */
-    @Transactional
-    public AirportFlightsWindowSnapshot collectFlightsForAirport(Airport airport, Instant begin, Instant end) {
-        String airportCode = airport.getCode();
+    private FlightRecord mapOpenSkyFlightToFlightRecord(OpenSkyFlightDto dto,
+                                                        Airport airport,
+                                                        String direction,
+                                                        LocalDateTime collectedAt) {
 
-        // Chiamata a OpenSky per arrivi
-        List<OpenSkyFlightDto> arrivals = openSkyClient.getArrivals(airportCode, begin, end);
+        String externalId = String.format("%s_%d_%d",
+                dto.getIcao24(),
+                dto.getFirstSeen(),
+                dto.getLastSeen());
 
-        // Chiamata a OpenSky per partenze
-        List<OpenSkyFlightDto> departures = openSkyClient.getDepartures(airportCode, begin, end);
+        String flightNumber = dto.getCallsign() != null
+                ? dto.getCallsign().trim()
+                : "UNKNOWN";
 
-        List<FlightRecord> toSave = new ArrayList<>();
-
-        if (arrivals != null) {
-            for (OpenSkyFlightDto dto : arrivals) {
-                FlightRecord record = mapToFlightRecord(dto, airport, "ARRIVAL");
-                toSave.add(record);
-            }
-        }
-
-        if (departures != null) {
-            for (OpenSkyFlightDto dto : departures) {
-                FlightRecord record = mapToFlightRecord(dto, airport, "DEPARTURE");
-                toSave.add(record);
-            }
-        }
-
-        if (!toSave.isEmpty()) {
-            flightRecordRepository.saveAll(toSave);
-        }
-
-        int arrivalsCount = arrivals != null ? arrivals.size() : 0;
-        int departuresCount = departures != null ? departures.size() : 0;
-
-        if (arrivalsCount == 0 && departuresCount == 0) {
-            // Nessun volo per questo aeroporto nella finestra
-            return null;
-        }
-
-        return new AirportFlightsWindowSnapshot(airportCode, arrivalsCount, departuresCount);
-    }
-
-    /**
-     * Mapping da DTO OpenSky a entità di dominio FlightRecord.
-     * I campi che OpenSky non fornisce (status, delayMinutes, scheduledTime)
-     * vengono lasciati null; verranno usati solo actualTime e collectedAt
-     * nelle analisi successive (ultimo volo, medie, ecc.).
-     */
-    private FlightRecord mapToFlightRecord(OpenSkyFlightDto dto, Airport airport, String direction) {
-        // Identificativo esterno: icao24 + firstSeen + lastSeen
-        String externalId = dto.getIcao24() + "-" + dto.getFirstSeen() + "-" + dto.getLastSeen();
-
-        // Utilizziamo il callsign come "flightNumber" (se presente)
-        String flightNumber = dto.getCallsign();
-
-        // Per semplicità lasciamo scheduledTime a null
-        LocalDateTime scheduledTime = null;
-
-        // Determiniamo actualTime in base alla direzione:
-        // - ARRIVAL: lastSeen ~ momento di arrivo
-        // - DEPARTURE: firstSeen ~ momento di partenza
-        LocalDateTime actualTime;
-        if ("ARRIVAL".equals(direction)) {
-            actualTime = epochSecondsToLocalDateTime(dto.getLastSeen());
-        } else {
-            actualTime = epochSecondsToLocalDateTime(dto.getFirstSeen());
-        }
-
-        // Per ora non gestiamo status e ritardi: li lasciamo null
-        String status = null;
-        Integer delayMinutes = null;
-
-        // Timestamp di raccolta (quando il nostro sistema ha inserito il record)
-        LocalDateTime collectedAt = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime actualTime = epochSecondsToLocalDateTime(dto.getLastSeen());
+        LocalDateTime scheduledTime = actualTime;  // non abbiamo informazione di schedule
+        String status = "ON_TIME";
+        Integer delayMinutes = 0;
 
         return new FlightRecord(
                 airport,

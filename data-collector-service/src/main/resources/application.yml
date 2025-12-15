@@ -41,6 +41,17 @@ opensky:
   client-id: ${OPENSKY_CLIENT_ID}
   client-secret: ${OPENSKY_CLIENT_SECRET}
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      opensky:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10          # numero di chiamate considerate nella finestra
+        failureRateThreshold: 50       # % di fallimenti oltre cui il circuito va in OPEN
+        waitDurationInOpenState: 30s   # tempo di attesa prima del passaggio a HALF_OPEN
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
 
 
 

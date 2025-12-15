@@ -29,9 +29,9 @@ public class FlightCollectionScheduler {
     @Scheduled(fixedRateString = "60000") // ogni minuto per test
     public void collectLastHourForAllAirports() {
         Instant end = Instant.now();
-        // In questo momento si considerano le ultime 24 ore; il commento può
+        // In questo momento si considerano le ultime 8 ore; il commento può
         // essere aggiornato se si modifica la logica della finestra.
-        Instant begin = end.minus(24, ChronoUnit.HOURS);
+        Instant begin = end.minus(8, ChronoUnit.HOURS);
 
         log.info("Starting flight collection for all interested airports in interval [{} - {}]", begin, end);
 

@@ -1,218 +1,133 @@
 package flights.datacollector.client;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import flights.datacollector.client.dto.OpenSkyFlightDto;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Client per il servizio REST di OpenSky.
+ * Incapsula le chiamate HTTP e applica un Circuit Breaker (Resilience4j)
+ * per proteggere il microservizio nel caso di malfunzionamenti esterni.
+ */
 @Component
 public class OpenSkyClient {
 
-    private final RestTemplate restTemplate;
+    private static final Logger log = LoggerFactory.getLogger(OpenSkyClient.class);
 
-    // URL base delle API REST di OpenSky (es. https://opensky-network.org/api)
+    private final RestTemplate restTemplate;
     private final String apiBaseUrl;
 
-    // Endpoint OAuth2 per ottenere il token (es. https://auth.opensky-network.org/.../token)
-    private final String authUrl;
-
-    // Credenziali OAuth2 (client credentials)
-    private final String clientId;
-    private final String clientSecret;
-
-    // Cache del token per evitare di richiederlo a ogni chiamata
-    private String accessToken;
-    private Instant accessTokenExpiry;
-
     public OpenSkyClient(RestTemplateBuilder restTemplateBuilder,
-                         @Value("${opensky.api-base-url:https://opensky-network.org/api}") String apiBaseUrl,
-                         @Value("${opensky.auth-url}") String authUrl,
-                         @Value("${opensky.client-id}") String clientId,
-                         @Value("${opensky.client-secret}") String clientSecret) {
-
+                         @Value("${opensky.api-base-url}") String apiBaseUrl,
+                         @Value("${opensky.timeout-seconds:5}") long timeoutSeconds) {
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(Duration.ofSeconds(10))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .setConnectTimeout(Duration.ofSeconds(timeoutSeconds))
+                .setReadTimeout(Duration.ofSeconds(timeoutSeconds))
                 .build();
-
         this.apiBaseUrl = apiBaseUrl;
-        this.authUrl = authUrl;
-        this.clientId = clientId;
-        this.clientSecret = clientSecret;
     }
 
     /**
-     * Recupera i voli in arrivo su un aeroporto nel periodo [begin, end].
-     *
-     * @param airportIcao Codice ICAO dell'aeroporto (es. "EDDF").
-     * @param begin       Inizio intervallo (Instant, UTC).
-     * @param end         Fine intervallo (Instant, UTC).
-     * @return Lista di voli (eventualmente vuota se non ci sono voli).
+     * Recupera i voli in arrivo per un aeroporto e una finestra temporale.
      */
     public List<OpenSkyFlightDto> getArrivals(String airportIcao, Instant begin, Instant end) {
         return fetchFlights("/flights/arrival", airportIcao, begin, end);
     }
 
     /**
-     * Recupera i voli in partenza da un aeroporto nel periodo [begin, end].
-     *
-     * @param airportIcao Codice ICAO dell'aeroporto.
-     * @param begin       Inizio intervallo (Instant, UTC).
-     * @param end         Fine intervallo (Instant, UTC).
-     * @return Lista di voli (eventualmente vuota se non ci sono voli).
+     * Recupera i voli in partenza per un aeroporto e una finestra temporale.
      */
     public List<OpenSkyFlightDto> getDepartures(String airportIcao, Instant begin, Instant end) {
         return fetchFlights("/flights/departure", airportIcao, begin, end);
     }
 
-    private List<OpenSkyFlightDto> fetchFlights(String path,
-                                                String airportIcao,
-                                                Instant begin,
-                                                Instant end) {
-
-        String url = apiBaseUrl + path + "?airport={airport}&begin={begin}&end={end}";
-
-        long beginEpoch = begin.getEpochSecond();
-        long endEpoch = end.getEpochSecond();
+    /**
+     * Metodo centrale protetto da Circuit Breaker.
+     * Se OpenSky è down o instabile, Resilience4j può aprire il circuito
+     * e le chiamate successive verranno cortocircuitate, cadendo nel fallback.
+     */
+    @CircuitBreaker(name = "opensky", fallbackMethod = "fallbackFetchFlights")
+    protected List<OpenSkyFlightDto> fetchFlights(String path,
+                                                  String airportIcao,
+                                                  Instant begin,
+                                                  Instant end) {
+        URI uri = UriComponentsBuilder.fromHttpUrl(apiBaseUrl)
+                .path(path)
+                .queryParam("airport", airportIcao)
+                .queryParam("begin", begin.getEpochSecond())
+                .queryParam("end", end.getEpochSecond())
+                .build(true)
+                .toUri();
 
         try {
-            ResponseEntity<OpenSkyFlightDto[]> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    buildAuthEntity(),       // Authorization: Bearer <token>
-                    OpenSkyFlightDto[].class,
-                    airportIcao,
-                    beginEpoch,
-                    endEpoch
-            );
+            log.debug("Chiamata OpenSky: uri={} (airport={}, begin={}, end={})",
+                    uri, airportIcao, begin, end);
+
+            ResponseEntity<OpenSkyFlightDto[]> response =
+                    restTemplate.getForEntity(uri, OpenSkyFlightDto[].class);
 
             OpenSkyFlightDto[] body = response.getBody();
             if (body == null || body.length == 0) {
+                log.debug("OpenSky ha restituito una lista vuota (airport={}, path={}, status={})",
+                        airportIcao, path, response.getStatusCode());
                 return Collections.emptyList();
             }
 
             return Arrays.asList(body);
-
-        } catch (HttpClientErrorException.NotFound e) {
-            // Caso documentato da OpenSky: 404 -> nessun volo nel periodo richiesto
+        }
+        // Caso speciale: 404 Not Found → per OpenSky su questi endpoint significa "nessun volo"
+        catch (HttpClientErrorException.NotFound ex) {
+            log.info("Nessun volo trovato su OpenSky (404) per airport={} path={} window=[{}, {}]. " +
+                            "Tratto il caso come '0 voli' e ritorno lista vuota.",
+                    airportIcao, path, begin, end);
             return Collections.emptyList();
         }
-        // Le altre eccezioni (401, 429, 5xx, problemi di rete) al momento vengono propagate.
+        // Altri 4xx / 5xx → errori reali, da far gestire al Circuit Breaker
+        catch (HttpStatusCodeException ex) {
+            log.warn("Errore HTTP da OpenSky per airport={} path={} window=[{}, {}]. " +
+                            "Status={} Body={}",
+                    airportIcao, path, begin, end, ex.getStatusCode(), ex.getResponseBodyAsString());
+            // L’eccezione viene rilanciata per essere vista da Resilience4j
+            throw ex;
+        }
+        // Errori generici di client (timeout, I/O, ecc.)
+        catch (RestClientException ex) {
+            log.warn("Errore di comunicazione con OpenSky per airport={} path={} window=[{}, {}]. " +
+                            "Dettagli={}",
+                    airportIcao, path, begin, end, ex.getMessage());
+            throw ex;
+        }
     }
 
     /**
-     * Crea l'HttpEntity con l'header Authorization: Bearer <token>.
+     * Fallback invocato quando il Circuit Breaker è in stato OPEN
+     * o quando la chiamata fallisce e Resilience4j applica il fallback.
      */
-    private HttpEntity<Void> buildAuthEntity() {
-        HttpHeaders headers = new HttpHeaders();
-        String token = getAccessToken();
-        headers.setBearerAuth(token);
-        return new HttpEntity<>(headers);
-    }
-
-    /**
-     * Restituisce un access token valido. Se il token in cache è ancora valido lo riusa,
-     * altrimenti ne richiede uno nuovo all'Authorization Server di OpenSky.
-     */
-    private synchronized String getAccessToken() {
-        // Se ho già un token non scaduto (con un piccolo margine di 60s), lo riuso
-        if (accessToken != null && accessTokenExpiry != null) {
-            Instant now = Instant.now();
-            if (now.isBefore(accessTokenExpiry.minusSeconds(60))) {
-                return accessToken;
-            }
-        }
-
-        // Altrimenti chiedo un nuovo token via OAuth2 Client Credentials
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "client_credentials");
-        body.add("client_id", clientId);
-        body.add("client_secret", clientSecret);
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
-
-        ResponseEntity<OpenSkyTokenResponse> response =
-                restTemplate.postForEntity(authUrl, request, OpenSkyTokenResponse.class);
-
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            throw new IllegalStateException(
-                    "Impossibile ottenere un access token da OpenSky. HTTP status: " + response.getStatusCode());
-        }
-
-        OpenSkyTokenResponse tokenResponse = response.getBody();
-        if (tokenResponse.getAccessToken() == null || tokenResponse.getAccessToken().isBlank()) {
-            throw new IllegalStateException("Risposta OAuth2 di OpenSky priva di access_token valido");
-        }
-
-        this.accessToken = tokenResponse.getAccessToken();
-
-        // Se "expires_in" non è valorizzato, assumiamo 1800 secondi (30 minuti)
-        long expiresIn = tokenResponse.getExpiresIn() != null ? tokenResponse.getExpiresIn() : 1800L;
-        this.accessTokenExpiry = Instant.now().plusSeconds(expiresIn);
-
-        return this.accessToken;
-    }
-
-    /**
-     * DTO interno per mappare la risposta del token endpoint di OpenSky.
-     *
-     * Esempio di risposta:
-     * {
-     *   "access_token": "...",
-     *   "expires_in": 1800,
-     *   "token_type": "Bearer",
-     *   ...
-     * }
-     */
-    @SuppressWarnings("unused")
-    private static class OpenSkyTokenResponse {
-
-        @JsonProperty("access_token")
-        private String accessToken;
-
-        @JsonProperty("expires_in")
-        private Long expiresIn;
-
-        @JsonProperty("token_type")
-        private String tokenType;
-
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        public Long getExpiresIn() {
-            return expiresIn;
-        }
-
-        public String getTokenType() {
-            return tokenType;
-        }
-
-        public void setAccessToken(String accessToken) {
-            this.accessToken = accessToken;
-        }
-
-        public void setExpiresIn(Long expiresIn) {
-            this.expiresIn = expiresIn;
-        }
-
-        public void setTokenType(String tokenType) {
-            this.tokenType = tokenType;
-        }
+    protected List<OpenSkyFlightDto> fallbackFetchFlights(String path,
+                                                          String airportIcao,
+                                                          Instant begin,
+                                                          Instant end,
+                                                          Throwable ex) {
+        log.warn("Fallback OpenSky attivato (circuit breaker o errore) per airport={}, path={}. " +
+                        "Motivo: {}. Ritorno lista vuota.",
+                airportIcao, path, ex.toString());
+        return Collections.emptyList();
     }
 }

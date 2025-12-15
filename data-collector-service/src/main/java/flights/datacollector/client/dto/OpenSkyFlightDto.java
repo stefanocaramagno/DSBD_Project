@@ -1,26 +1,31 @@
 package flights.datacollector.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * DTO per il mapping della risposta JSON di OpenSky per i voli.
+ * Si assume lo schema dell'endpoint /flights/arrival e /flights/departure.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class OpenSkyFlightDto {
 
-    // Identificativo del transponder
+    @JsonProperty("icao24")
     private String icao24;
 
-    // Call-sign del volo (es. "DLH1234")
+    @JsonProperty("callsign")
     private String callsign;
 
-    // Aeroporto stimato di partenza (ICAO, es. "EDDF")
+    @JsonProperty("estDepartureAirport")
     private String estDepartureAirport;
 
-    // Aeroporto stimato di arrivo (ICAO)
+    @JsonProperty("estArrivalAirport")
     private String estArrivalAirport;
 
-    // Istante di partenza (epoch seconds)
+    @JsonProperty("firstSeen")
     private long firstSeen;
 
-    // Istante di arrivo (epoch seconds)
+    @JsonProperty("lastSeen")
     private long lastSeen;
 
     public OpenSkyFlightDto() {
