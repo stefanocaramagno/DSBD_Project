@@ -129,3 +129,16 @@ services:
       SPRING_PROFILES_ACTIVE: docker
     ports:
       - "8084:8084"
+
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: api_gateway
+    depends_on:
+      user-manager-service:
+        condition: service_started
+      data-collector-service:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
