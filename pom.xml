@@ -5,12 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>flights</groupId>
-    <artifactId>dbsd-project</artifactId>
+    <artifactId>dsbd-project</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
         <module>user-manager-service</module>
         <module>data-collector-service</module>
+	    <module>alert-system-service</module>
     </modules>
 </project>

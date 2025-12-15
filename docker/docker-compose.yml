@@ -99,3 +99,19 @@ services:
       SPRING_PROFILES_ACTIVE: docker
     ports:
       - "8082:8082"
+
+  alert-system-service:
+    build:
+      context: ../alert-system-service
+    container_name: alert_system
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    env_file:
+      - ./env/services.env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8083:8083"
