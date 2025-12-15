@@ -27,16 +27,30 @@ public class UserAirportInterest {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "high_value")
+    private Integer highValue;
+
+    @Column(name = "low_value")
+    private Integer lowValue;
+
     protected UserAirportInterest() {
     }
 
     public UserAirportInterest(String userEmail, Airport airport, LocalDateTime createdAt) {
+        this(userEmail, airport, createdAt, null, null);
+    }
+
+    public UserAirportInterest(String userEmail,
+                               Airport airport,
+                               LocalDateTime createdAt,
+                               Integer highValue,
+                               Integer lowValue) {
         this.userEmail = userEmail;
         this.airport = airport;
         this.createdAt = createdAt;
+        this.highValue = highValue;
+        this.lowValue = lowValue;
     }
-
-    // Getter e setter
 
     public Long getId() {
         return id;
@@ -64,5 +78,21 @@ public class UserAirportInterest {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getHighValue() {
+        return highValue;
+    }
+
+    public void setHighValue(Integer highValue) {
+        this.highValue = highValue;
+    }
+
+    public Integer getLowValue() {
+        return lowValue;
+    }
+
+    public void setLowValue(Integer lowValue) {
+        this.lowValue = lowValue;
     }
 }
