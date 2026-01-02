@@ -1,6 +1,7 @@
 package flights.datacollector.client;
 
 import flights.datacollector.client.dto.OpenSkyFlightDto;
+import flights.datacollector.observability.OpenSkyClientMetrics;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,14 +35,18 @@ public class OpenSkyClient {
     private final RestTemplate restTemplate;
     private final String apiBaseUrl;
 
+    private final OpenSkyClientMetrics metrics;
+
     public OpenSkyClient(RestTemplateBuilder restTemplateBuilder,
                          @Value("${opensky.api-base-url}") String apiBaseUrl,
-                         @Value("${opensky.timeout-seconds:5}") long timeoutSeconds) {
+                         @Value("${opensky.timeout-seconds:5}") long timeoutSeconds,
+                         OpenSkyClientMetrics metrics) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofSeconds(timeoutSeconds))
                 .setReadTimeout(Duration.ofSeconds(timeoutSeconds))
                 .build();
         this.apiBaseUrl = apiBaseUrl;
+        this.metrics = metrics;
     }
 
     /**
@@ -60,7 +65,7 @@ public class OpenSkyClient {
 
     /**
      * Metodo centrale protetto da Circuit Breaker.
-     * Se OpenSky è down o instabile, Resilience4j può aprire il circuito
+     * Se OpenSky non risponde o restituisce errori, Resilience4j può aprire il circuito
      * e le chiamate successive verranno cortocircuitate, cadendo nel fallback.
      */
     @CircuitBreaker(name = "opensky", fallbackMethod = "fallbackFetchFlights")
@@ -75,6 +80,10 @@ public class OpenSkyClient {
                 .queryParam("end", end.getEpochSecond())
                 .build(true)
                 .toUri();
+
+        // Metriche: conta la richiesta e misura la latenza dell'operazione.
+        metrics.incrementRequests();
+        final long startNs = System.nanoTime();
 
         try {
             log.debug("Chiamata OpenSky: uri={} (airport={}, begin={}, end={})",
@@ -105,6 +114,7 @@ public class OpenSkyClient {
                             "Status={} Body={}",
                     airportIcao, path, begin, end, ex.getStatusCode(), ex.getResponseBodyAsString());
             // L’eccezione viene rilanciata per essere vista da Resilience4j
+            metrics.incrementRequestErrors();
             throw ex;
         }
         // Errori generici di client (timeout, I/O, ecc.)
@@ -112,7 +122,12 @@ public class OpenSkyClient {
             log.warn("Errore di comunicazione con OpenSky per airport={} path={} window=[{}, {}]. " +
                             "Dettagli={}",
                     airportIcao, path, begin, end, ex.getMessage());
+            metrics.incrementRequestErrors();
             throw ex;
+        }
+        finally {
+            long durationMs = (System.nanoTime() - startNs) / 1_000_000L;
+            metrics.setLastFetchDurationMs(durationMs);
         }
     }
 
@@ -125,6 +140,7 @@ public class OpenSkyClient {
                                                           Instant begin,
                                                           Instant end,
                                                           Throwable ex) {
+        metrics.incrementFallbacks();
         log.warn("Fallback OpenSky attivato (circuit breaker o errore) per airport={}, path={}. " +
                         "Motivo: {}. Ritorno lista vuota.",
                 airportIcao, path, ex.toString());

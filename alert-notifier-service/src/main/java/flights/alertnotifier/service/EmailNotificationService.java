@@ -1,6 +1,7 @@
 package flights.alertnotifier.service;
 
 import flights.alertnotifier.messaging.dto.ThresholdBreachNotificationEvent;
+import flights.alertnotifier.observability.EmailNotificationMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,11 +37,14 @@ public class EmailNotificationService {
     private volatile long lastSendTimestamp = 0L;
 
     private final JavaMailSender mailSender;
+    private final EmailNotificationMetrics metrics;
     private final String fromAddress;
 
     public EmailNotificationService(JavaMailSender mailSender,
+                                    EmailNotificationMetrics metrics,
                                     @Value("${app.alerts.mail.from:no-reply@system-alerts.local}") String fromAddress) {
         this.mailSender = mailSender;
+        this.metrics = metrics;
         this.fromAddress = fromAddress;
     }
 
@@ -54,19 +58,34 @@ public class EmailNotificationService {
         message.setSubject(subject);
         message.setText(body);
 
+        long sendStartNs = 0L;
+
         try {
             // Limita il rate di invio per non saturare Mailtrap
             throttleIfNeeded();
 
+            sendStartNs = System.nanoTime();
             mailSender.send(message);
+            long durationMs = (System.nanoTime() - sendStartNs) / 1_000_000L;
+            metrics.setLastSendDurationMs(durationMs);
+            metrics.incrementEmailsSent();
+
             log.info("Email di notifica inviata a {} per aeroporto {} (breachType={})",
                     event.getUserEmail(), event.getAirportCode(), event.getBreachType());
         }
         catch (MailException ex) {
             String msg = ex.getMessage() != null ? ex.getMessage() : "";
 
+            if (sendStartNs > 0L) {
+                long durationMs = (System.nanoTime() - sendStartNs) / 1_000_000L;
+                metrics.setLastSendDurationMs(durationMs);
+            }
+
+            metrics.incrementEmailSendErrors();
+
             // Caso specifico: rate limit di Mailtrap (Too many emails per second)
             if (msg.contains("Too many emails per second")) {
+                metrics.incrementEmailRateLimited();
                 log.warn("Rate limit SMTP di Mailtrap raggiunto durante l'invio a {} per aeroporto {}: {}. " +
                                 "La notifica è stata scartata o verrà ritentata al prossimo evento.",
                         event.getUserEmail(), event.getAirportCode(), msg);
@@ -79,6 +98,12 @@ public class EmailNotificationService {
         }
         catch (Exception ex) {
             // Errori imprevisti (non MailException)
+            if (sendStartNs > 0L) {
+                long durationMs = (System.nanoTime() - sendStartNs) / 1_000_000L;
+                metrics.setLastSendDurationMs(durationMs);
+            }
+
+            metrics.incrementEmailSendErrors();
             log.error("Errore inatteso durante l'invio dell'email a {} per aeroporto {}: {}",
                     event.getUserEmail(), event.getAirportCode(), ex.getMessage(), ex);
         }
@@ -113,18 +138,16 @@ public class EmailNotificationService {
                 ? "superamento soglia"
                 : "soglia inferiore non raggiunta";
 
-        return String.format("[Flights Alert] %s per aeroporto %s",
-                direction, event.getAirportCode());
+        return String.format("[ALERT] %s - %s", event.getAirportCode(), direction);
     }
 
     private String buildBody(ThresholdBreachNotificationEvent event) {
-        String window = String.format("%s – %s",
-                WINDOW_FORMATTER.format(event.getWindowBegin()),
-                WINDOW_FORMATTER.format(event.getWindowEnd()));
+        String window = WINDOW_FORMATTER.format(event.getWindowBegin()) + " - " +
+                WINDOW_FORMATTER.format(event.getWindowEnd());
 
         String thresholdLabel = "HIGH".equalsIgnoreCase(event.getBreachType())
-                ? "soglia superiore"
-                : "soglia inferiore";
+                ? "valore sopra la soglia"
+                : "valore sotto la soglia";
 
         return new StringBuilder()
                 .append("Gentile utente,\n\n")

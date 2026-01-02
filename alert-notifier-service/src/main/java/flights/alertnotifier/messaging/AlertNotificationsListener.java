@@ -2,6 +2,7 @@ package flights.alertnotifier.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import flights.alertnotifier.messaging.dto.ThresholdBreachNotificationEvent;
+import flights.alertnotifier.observability.AlertNotifierMetrics;
 import flights.alertnotifier.service.EmailNotificationService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -20,11 +21,14 @@ public class AlertNotificationsListener {
 
     private final ObjectMapper objectMapper;
     private final EmailNotificationService emailNotificationService;
+    private final AlertNotifierMetrics metrics;
 
     public AlertNotificationsListener(ObjectMapper objectMapper,
-                                      EmailNotificationService emailNotificationService) {
+                                      EmailNotificationService emailNotificationService,
+                                      AlertNotifierMetrics metrics) {
         this.objectMapper = objectMapper;
         this.emailNotificationService = emailNotificationService;
+        this.metrics = metrics;
     }
 
     @KafkaListener(
@@ -36,13 +40,22 @@ public class AlertNotificationsListener {
         log.debug("Messaggio di notifica ricevuto da Kafka. topic={}, partition={}, offset={}",
                 record.topic(), record.partition(), record.offset());
 
+        metrics.incrementNotificationsConsumed();
+        final long startNs = System.nanoTime();
+
         try {
             ThresholdBreachNotificationEvent event =
                     objectMapper.readValue(payload, ThresholdBreachNotificationEvent.class);
             emailNotificationService.sendThresholdBreachEmail(event);
         } catch (Exception ex) {
+            metrics.incrementNotificationsProcessingErrors();
             log.error("Errore nella deserializzazione o gestione della notifica ricevuta da Kafka: {}",
                     ex.getMessage(), ex);
         }
+        finally {
+            long durationMs = (System.nanoTime() - startNs) / 1_000_000L;
+            metrics.setLastProcessingDurationMs(durationMs);
+        }
+
     }
 }

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: dsbd
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      - job_name: "data-collector"
+        metrics_path: /actuator/prometheus
+        honor_labels: true
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ["dsbd"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: data-collector-service
+
+      - job_name: "alert-notifier"
+        metrics_path: /actuator/prometheus
+        honor_labels: true
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ["dsbd"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: alert-notifier-service
+
+      - job_name: "alert-system"
+        metrics_path: /actuator/prometheus
+        honor_labels: true
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ["dsbd"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: alert-system-service
