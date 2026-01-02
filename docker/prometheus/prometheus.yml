@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  - job_name: "data-collector"
+    metrics_path: /actuator/prometheus
+    honor_labels: true
+    static_configs:
+      - targets: ["data-collector-service:8082"]
+
+  - job_name: "alert-system"
+    metrics_path: /actuator/prometheus
+    honor_labels: true
+    static_configs:
+      - targets: ["alert-system-service:8083"]
+
+  - job_name: "alert-notifier"
+    metrics_path: /actuator/prometheus
+    honor_labels: true
+    static_configs:
+      - targets: ["alert-notifier-service:8084"]
