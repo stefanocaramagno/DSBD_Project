@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: dsbd
+data:
+  01-create-databases.sql: |
+    CREATE DATABASE userdb;
+    CREATE DATABASE datadb;
