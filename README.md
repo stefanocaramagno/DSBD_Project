@@ -5,6 +5,7 @@
 * [1. Project Overview](#1-project-overview)
 
   * [1.1 Descrizione sintetica del sistema di Flight Monitoring](#11-descrizione-sintetica-del-sistema-di-flight-monitoring)
+
   * [1.2 Microservizi coinvolti](#12-microservizi-coinvolti)
 
     * [1.2.1 User Manager Service](#121-user-manager-service)
@@ -13,11 +14,14 @@
     * [1.2.4 Alert Notifier Service](#124-alert-notifier-service)
     * [1.2.5 API Gateway](#125-api-gateway)
     * [1.2.6 Kafka Broker](#126-kafka-broker)
+    * [1.2.7 Prometheus](#127-prometheus)
+
   * [1.3 Componenti esterni](#13-componenti-esterni)
 
     * [1.3.1 OpenSky Network API](#131-opensky-network-api)
     * [1.3.2 Database PostgreSQL](#132-database-postgresql)
     * [1.3.3 Mailtrap (Email Testing SMTP)](#133-mailtrap-email-testing-smtp)
+
   * [1.4 Riferimenti alla documentazione di progetto](#14-riferimenti-alla-documentazione-di-progetto)
 
     * [1.4.1 Relazioni tecniche](#141-relazioni-tecniche)
@@ -28,187 +32,280 @@
 * [2. Repository Structure](#2-repository-structure)
 
   * [2.1 Root layout della repository](#21-root-layout-della-repository)
+
   * [2.2 Struttura delle cartelle principali](#22-struttura-delle-cartelle-principali)
 
     * [2.2.1 Servizi applicativi (User Manager, Data Collector, Alert System, Alert Notifier)](#221-servizi-applicativi-user-manager-data-collector-alert-system-alert-notifier)
-    * [2.2.2 Infrastruttura Docker (PostgreSQL, Kafka, Zookeeper, Kafka UI, API Gateway)](#222-infrastruttura-docker-postgresql-kafka-zookeeper-kafka-ui-api-gateway)
-    * [2.2.3 Documentazione e diagrammi](#223-documentazione-e-diagrammi)
-    * [2.2.4 Postman collections](#224-postman-collections)
+    * [2.2.2 Infrastruttura applicativa (API Gateway)](#222-infrastruttura-applicativa-api-gateway)
+    * [2.2.3 Infrastruttura di messaging (Kafka, Zookeeper, Kafka UI)](#223-infrastruttura-di-messaging-kafka-zookeeper-kafka-ui)
+    * [2.2.4 Infrastruttura di monitoring (Prometheus)](#224-infrastruttura-di-monitoring-prometheus)
+    * [2.2.5 Manifest Kubernetes (`k8s/`) e Kustomize](#225-manifest-kubernetes-k8s-e-kustomize)
+    * [2.2.6 Script di supporto (build, kind, deploy)](#226-script-di-supporto-build-kind-deploy)
+    * [2.2.7 Documentazione e diagrammi](#227-documentazione-e-diagrammi)
+    * [2.2.8 Postman collections](#228-postman-collections)
+
   * [2.3 File chiave per build & deploy](#23-file-chiave-per-build--deploy)
 
 * [3. Prerequisites](#3-prerequisites)
 
   * [3.1 Requisiti hardware e sistema operativo](#31-requisiti-hardware-e-sistema-operativo)
+
   * [3.2 Software necessario](#32-software-necessario)
 
     * [3.2.1 Docker](#321-docker)
-    * [3.2.2 Docker Compose](#322-docker-compose)
-    * [3.2.3 JDK (per build/esecuzione locale senza Docker)](#323-jdk-per-buildesecuzione-locale-senza-docker)
-    * [3.2.4 Maven (per build/esecuzione-locale-senza-docker)](#324-maven-per-buildesecuzione-locale-senza-docker)
+    * [3.2.2 kubectl](#322-kubectl)
+    * [3.2.3 kind](#323-kind)
+    * [3.2.4 Kustomize (opzionale: alternativa a `kubectl apply -k`)](#324-kustomize-opzionale-alternativa-a-kubectl-apply--k)
+    * [3.2.5 JDK (per build/esecuzione locale senza Docker)](#325-jdk-per-buildesecuzione-locale-senza-docker)
+    * [3.2.6 Maven (per build/esecuzione locale senza Docker)](#326-maven-per-buildesecuzione-locale-senza-docker)
+
   * [3.3 Account e credenziali esterne](#33-account-e-credenziali-esterne)
 
     * [3.3.1 Registrazione a OpenSky Network](#331-registrazione-a-opensky-network)
     * [3.3.2 Ottenimento delle credenziali OAuth2 (client id/secret)](#332-ottenimento-delle-credenziali-oauth2-client-idsecret)
     * [3.3.3 Configurazione di un account Mailtrap (SMTP testing)](#333-configurazione-di-un-account-mailtrap-smtp-testing)
+
   * [3.4 Verifica installazione dei prerequisiti](#34-verifica-installazione-dei-prerequisiti)
 
 * [4. Configuration](#4-configuration)
 
   * [4.1 Strategie di configurazione (env-based configuration)](#41-strategie-di-configurazione-env-based-configuration)
-  * [4.2 File `.env` e variabili d’ambiente](#42-file-env-e-variabili-dambiente)
 
-    * [4.2.1 File `.env` a livello di `docker/`](#421-file-env-a-livello-di-docker)
-    * [4.2.2 File `.env` specifici per i servizi (se presenti)](#422-file-env-specifici-per-i-servizi-se-presenti)
+  * [4.2 ConfigMap e Secret (Kubernetes)](#42-configmap-e-secret-kubernetes)
+
+    * [4.2.1 ConfigMap: variabili non sensibili](#421-configmap-variabili-non-sensibili)
+    * [4.2.2 Secret: credenziali e dati sensibili](#422-secret-credenziali-e-dati-sensibili)
+    * [4.2.3 Gestione sicura delle credenziali (placeholder vs valori reali)](#423-gestione-sicura-delle-credenziali-placeholder-vs-valori-reali)
+
   * [4.3 Configurazione del database PostgreSQL](#43-configurazione-del-database-postgresql)
 
     * [4.3.1 Parametri di connessione (host, port, user, password)](#431-parametri-di-connessione-host-port-user-password)
     * [4.3.2 Database logici: User DB e Data DB](#432-database-logici-user-db-e-data-db)
+
   * [4.4 Configurazione delle credenziali OpenSky](#44-configurazione-delle-credenziali-opensky)
 
     * [4.4.1 Variabili d’ambiente per client id e secret](#441-variabili-dambiente-per-client-id-e-secret)
     * [4.4.2 Gestione sicura delle credenziali (placeholder vs valori reali)](#442-gestione-sicura-delle-credenziali-placeholder-vs-valori-reali)
+
   * [4.5 Configurazione del sistema di posta (Mailtrap SMTP)](#45-configurazione-del-sistema-di-posta-mailtrap-smtp)
 
     * [4.5.1 Variabili d’ambiente `MAIL_*` per l’Alert Notifier](#451-variabili-dambiente-mail_-per-lalert-notifier)
     * [4.5.2 Considerazioni su mittente, autenticazione e TLS](#452-considerazioni-su-mittente-autenticazione-e-tls)
+
   * [4.6 Profili e configurazioni Spring Boot](#46-profili-e-configurazioni-spring-boot)
 
     * [4.6.1 Uso del profilo di default e overriding tramite variabili d’ambiente](#461-uso-del-profilo-di-default-e-overriding-tramite-variabili-dambiente)
-    * [4.6.2 Configurazioni per l’esecuzione in ambiente Docker (`application-docker.yml`)](#462-configurazioni-per-lesecuzione-in-ambiente-docker-application-dockeryml)
-    * [4.6.3 Configurazione del Circuit Breaker Resilience4j verso OpenSky](#463-configurazione-del-circuit-breaker-resilience4j-verso-opensky)
+    * [4.6.2 Configurazione del Circuit Breaker Resilience4j verso OpenSky](#462-configurazione-del-circuit-breaker-resilience4j-verso-opensky)
+
+  * [4.7 Configurazione del monitoring (Actuator/Micrometer/Prometheus)](#47-configurazione-del-monitoring-actuatormicrometerprometheus)
+
+    * [4.7.1 Esposizione endpoint `/actuator/prometheus`](#471-esposizione-endpoint-actuatorprometheus)
+    * [4.7.2 Convenzioni di naming e labeling delle metriche](#472-convenzioni-di-naming-e-labeling-delle-metriche)
 
 * [5. Build Instructions](#5-build-instructions)
 
-  * [5.1 Build tramite Docker (modalità raccomandata)](#51-build-tramite-docker-modalità-raccomandata)
+  * [5.1 Build immagini Docker (modalità raccomandata)](#51-build-immagini-docker-modalità-raccomandata)
 
     * [5.1.1 Posizionamento nella cartella corretta](#511-posizionamento-nella-cartella-corretta)
-    * [5.1.2 Comando per buildare le immagini con Docker Compose](#512-comando-per-buildare-le-immagini-con-docker-compose)
+    * [5.1.2 Comando per buildare le immagini Docker](#512-comando-per-buildare-le-immagini-docker)
     * [5.1.3 Descrizione dei Dockerfile dei microservizi (multi-stage build)](#513-descrizione-dei-dockerfile-dei-microservizi-multi-stage-build)
+
   * [5.2 Build locale senza Docker (opzionale)](#52-build-locale-senza-docker-opzionale)
 
     * [5.2.1 Build dello User Manager Service con Maven](#521-build-dello-user-manager-service-con-maven)
     * [5.2.2 Build del Data Collector Service con Maven](#522-build-del-data-collector-service-con-maven)
     * [5.2.3 Build dell’Alert System Service con Maven](#523-build-dellalert-system-service-con-maven)
     * [5.2.4 Build dell’Alert Notifier Service con Maven](#524-build-dellalert-notifier-service-con-maven)
-    * [5.2.5 Differenze rispetto alla modalità Docker-based](#525-differenze-rispetto-alla-modalità-docker-based)
+    * [5.2.5 Differenze rispetto alla modalità container-based](#525-differenze-rispetto-alla-modalità-docker-based)
 
-* [6. Deploy & Run with Docker Compose](#6-deploy--run-with-docker-compose)
+  * [5.3 Caricamento immagini nel cluster kind](#53-caricamento-immagini-nel-cluster-kind)
+
+    * [5.3.1 Verifica immagini disponibili localmente](#531-verifica-immagini-disponibili-localmente)
+    * [5.3.2 Comando `kind load docker-image`](#532-comando-kind-load-docker-image)
+    * [5.3.3 Verifica del caricamento nel cluster](#533-verifica-del-caricamento-nel-cluster)
+
+* [6. Deploy & Run on Kubernetes (kind)](#6-deploy--run-on-kubernetes-kind)
 
   * [6.1 Prima esecuzione dello stack completo](#61-prima-esecuzione-dello-stack-completo)
 
-    * [6.1.1 Preparazione dei file `.env`](#611-preparazione-dei-file-env)
-    * [6.1.2 Avvio dei servizi (`docker compose up -d` / `docker compose up --build`)](#612-avvio-dei-servizi-docker-compose-up--d--docker-compose-up---build)
-    * [6.1.3 Verifica che i container siano in esecuzione](#613-verifica-che-i-container-siano-in-esecuzione)
+    * [6.1.1 Creazione del cluster kind](#611-creazione-del-cluster-kind)
+    * [6.1.2 Preparazione ConfigMap e Secret](#612-preparazione-configmap-e-secret)
+    * [6.1.3 Deploy tramite Kustomize (`kubectl apply -k`)](#613-deploy-tramite-kustomize-kubectl-apply--k)
+    * [6.1.4 Verifica che i Pod siano in esecuzione](#614-verifica-che-i-pod-siano-in-esecuzione)
+
   * [6.2 Arresto del sistema](#62-arresto-del-sistema)
 
-    * [6.2.1 Comando di stop (`docker compose down`)](#621-comando-di-stop-docker-compose-down)
-    * [6.2.2 Rimozione volumi/persistenza (se necessario)](#622-rimozione-volumipersistenza-se-necessario)
-  * [6.3 Comandi Docker utili](#63-comandi-docker-utili)
+    * [6.2.1 Eliminazione delle risorse Kubernetes (`kubectl delete -k`)](#621-eliminazione-delle-risorse-kubernetes-kubectl-delete--k)
+    * [6.2.2 Eliminazione del cluster kind](#622-eliminazione-del-cluster-kind)
 
-    * [6.3.1 Visualizzazione log di un singolo servizio](#631-visualizzazione-log-di-un-singolo-servizio)
-    * [6.3.2 Accesso alla shell di un container](#632-accesso-alla-shell-di-un-container)
-    * [6.3.3 Verifica delle porte esposte](#633-verifica-delle-porte-esposte)
-  * [6.4 Accesso ai servizi infrastrutturali (Kafka UI, API Gateway)](#64-accesso-ai-servizi-infrastrutturali-kafka-ui-api-gateway)
+  * [6.3 Comandi Kubernetes utili](#63-comandi-kubernetes-utili)
+
+    * [6.3.1 Visualizzazione risorse (`kubectl get`) e stato](#631-visualizzazione-risorse-kubectl-get-e-stato)
+    * [6.3.2 Accesso ai log di un Pod (`kubectl logs`)](#632-accesso-ai-log-di-un-pod-kubectl-logs)
+    * [6.3.3 Describe e debugging (`kubectl describe`)](#633-describe-e-debugging-kubectl-describe)
+
+  * [6.4 Deploy dei servizi infrastrutturali (overview)](#64-deploy-dei-servizi-infrastrutturali-overview)
+
+    * [6.4.1 PostgreSQL](#641-postgresql)
+    * [6.4.2 Kafka e servizi correlati](#642-kafka-e-servizi-correlati)
+    * [6.4.3 Kafka UI](#643-kafka-ui)
+    * [6.4.4 Prometheus](#644-prometheus)
 
 * [7. Accessing the Services](#7-accessing-the-services)
 
-  * [7.1 User Manager Service](#71-user-manager-service)
+  * [7.1 Accesso tramite port-forward (approccio raccomandato)](#71-accesso-tramite-port-forward-approccio-raccomandato)
 
-    * [7.1.1 Endpoint base (host, port)](#711-endpoint-base-host-port)
-    * [7.1.2 Principali API REST esposte (registrazione, lettura, cancellazione utente)](#712-principali-api-rest-esposte-registrazione-lettura-cancellazione-utente)
-    * [7.1.3 Codici di risposta attesi per le operazioni chiave](#713-codici-di-risposta-attesi-per-le-operazioni-chiave)
-  * [7.2 Data Collector Service](#72-data-collector-service)
+    * [7.1.1 Port-forward API Gateway](#711-port-forward-api-gateway)
+    * [7.1.2 Port-forward Kafka UI](#712-port-forward-kafka-ui)
+    * [7.1.3 Port-forward Prometheus](#713-port-forward-prometheus)
+
+  * [7.2 User Manager Service](#72-user-manager-service)
 
     * [7.2.1 Endpoint base (host, port)](#721-endpoint-base-host-port)
-    * [7.2.2 API REST per la gestione degli aeroporti e degli interessi (incluse le soglie)](#722-api-rest-per-la-gestione-degli-aeroporti-e-degli-interessi-incluse-le-soglie)
-    * [7.2.3 API REST per interrogare i voli](#723-api-rest-per-interrogare-i-voli)
-  * [7.3 gRPC Interface](#73-grpc-interface)
+    * [7.2.2 Principali API REST esposte](#722-principali-api-rest-esposte)
+    * [7.2.3 Codici di risposta attesi](#723-codici-di-risposta-attesi)
 
-    * [7.3.1 Panoramica del servizio gRPC esposto dallo User Manager](#731-panoramica-del-servizio-grpc-esposto-dallo-user-manager)
-    * [7.3.2 Utilizzo interno da parte del Data Collector (non richiesto lato utente finale)](#732-utilizzo-interno-da-parte-del-data-collector-non-richiesto-lato-utente-finale)
-  * [7.4 API Gateway](#74-api-gateway)
+  * [7.3 Data Collector Service](#73-data-collector-service)
 
-    * [7.4.1 Endpoint pubblici esposti dal gateway](#741-endpoint-pubblici-esposti-dal-gateway)
-    * [7.4.2 Instradamento verso i microservizi interni](#742-instradamento-verso-i-microservizi-interni)
-  * [7.5 Alert System & Alert Notifier](#75-alert-system--alert-notifier)
+    * [7.3.1 Endpoint base (host, port)](#731-endpoint-base-host-port)
+    * [7.3.2 API REST per aeroporti e interessi (incluse le soglie)](#732-api-rest-per-aeroporti-e-interessi-incluse-le-soglie)
+    * [7.3.3 API REST per interrogare i voli](#733-api-rest-per-interrogare-i-voli)
 
-    * [7.5.1 Ruolo dei servizi nella pipeline di notifica](#751-ruolo-dei-servizi-nella-pipeline-di-notifica)
-    * [7.5.2 Osservazione del flusso tramite log e Kafka UI](#752-osservazione-del-flusso-tramite-log-e-kafka-ui)
+  * [7.4 gRPC Interface](#74-grpc-interface)
+
+    * [7.4.1 Panoramica del servizio gRPC esposto dallo User Manager](#741-panoramica-del-servizio-grpc-esposto-dallo-user-manager)
+    * [7.4.2 Utilizzo interno da parte del Data Collector](#742-utilizzo-interno-da-parte-del-data-collector)
+
+  * [7.5 API Gateway](#75-api-gateway)
+
+    * [7.5.1 Endpoint pubblici esposti dal gateway](#751-endpoint-pubblici-esposti-dal-gateway)
+    * [7.5.2 Instradamento verso i microservizi interni](#752-instradamento-verso-i-microservizi-interni)
+
+  * [7.6 Alert System & Alert Notifier](#76-alert-system--alert-notifier)
+
+    * [7.6.1 Ruolo dei servizi nella pipeline di notifica](#761-ruolo-dei-servizi-nella-pipeline-di-notifica)
+    * [7.6.2 Osservazione del flusso tramite log e Kafka UI](#762-osservazione-del-flusso-tramite-log-e-kafka-ui)
+
+  * [7.7 Kafka UI](#77-kafka-ui)
+
+    * [7.7.1 Endpoint di accesso (host, port)](#771-endpoint-di-accesso-host-port)
+    * [7.7.2 Verifica dei topic e ispezione messaggi](#772-verifica-dei-topic-e-ispezione-messaggi)
+
+  * [7.8 Prometheus UI](#78-prometheus-ui)
+
+    * [7.8.1 Endpoint di accesso (host, port)](#781-endpoint-di-accesso-host-port)
+    * [7.8.2 Verifica scraping (Targets) e query base](#782-verifica-scraping-targets-e-query-base)
 
 * [8. Using Postman Collections](#8-using-postman-collections)
 
   * [8.1 Localizzazione delle collection (`postman/`)](#81-localizzazione-delle-collection-postman)
+
   * [8.2 Import delle collection in Postman](#82-import-delle-collection-in-postman)
 
     * [8.2.1 User Manager API collection](#821-user-manager-api-collection)
     * [8.2.2 Data Collector API collection](#822-data-collector-api-collection)
+
   * [8.3 Configurazione delle variabili di ambiente in Postman (host, port, base URL)](#83-configurazione-delle-variabili-di-ambiente-in-postman-host-port-base-url)
+
   * [8.4 Esecuzione di scenari end-to-end tramite Postman](#84-esecuzione-di-scenari-end-to-end-tramite-postman)
 
     * [8.4.1 Registrazione di un nuovo utente](#841-registrazione-di-un-nuovo-utente)
     * [8.4.2 Registrazione interessi utente–aeroporto con soglie](#842-registrazione-interessi-utenteaeroporto-con-soglie)
     * [8.4.3 Interrogazione dello stato dei voli](#843-interrogazione-dello-stato-dei-voli)
 
-* [9. Health Checks, Logs and Basic Diagnostics](#9-health-checks-logs-and-basic-diagnostics)
+* [9. Monitoring & Metrics (Prometheus)](#9-monitoring--metrics-prometheus)
 
-  * [9.1 Verifica della raggiungibilità dei servizi](#91-verifica-della-raggiungibilità-dei-servizi)
+  * [9.1 Endpoint `/actuator/prometheus` e metriche applicative](#91-endpoint-actuatorprometheus-e-metriche-applicative)
+  * [9.2 Tipologie richieste: COUNTER e GAUGE](#92-tipologie-richieste-counter-e-gauge)
+  * [9.3 Labeling (service, node) e convenzioni adottate](#93-labeling-service-node-e-convenzioni-adottate)
+  * [9.4 Verifica dei target in Prometheus (Status > Targets)](#94-verifica-dei-target-in-prometheus-status--targets)
+  * [9.5 Query PromQL di riferimento](#95-query-promql-di-riferimento)
 
-    * [9.1.1 Endpoint di health (se presenti) o semplice ping](#911-endpoint-di-health-se-presenti-o-semplice-ping)
-  * [9.2 Log dei microservizi](#92-log-dei-microservizi)
+    * [9.5.1 Query COUNTER (rate/increase)](#951-query-counter-rateincrease)
+    * [9.5.2 Query GAUGE (valori istantanei e aggregazioni)](#952-query-gauge-valori-istantanei-e-aggregazioni)
+    * [9.5.3 Query per label (service/node)](#953-query-per-label-servicenode)
 
-    * [9.2.1 Accesso ai log via Docker (`docker compose logs`)](#921-accesso-ai-log-via-docker-docker-compose-logs)
-    * [9.2.2 Principali messaggi informativi/di errore da tenere d’occhio](#922-principali-messaggi-informativodi-errore-da-tenere-docchio)
-  * [9.3 Diagnostica del database](#93-diagnostica-del-database)
+* [10. Health Checks, Logs and Basic Diagnostics](#10-health-checks-logs-and-basic-diagnostics)
 
-    * [9.3.1 Accesso a PostgreSQL (via CLI o client esterno)](#931-accesso-a-postgresql-via-cli-o-client-esterno)
-    * [9.3.2 Verifica della creazione automatica di schemi e tabelle (Flyway)](#932-verifica-della-creazione-automatica-di-schemi-e-tabelle-flyway)
-  * [9.4 Diagnostica di Kafka e del sistema di posta](#94-diagnostica-di-kafka-e-del-sistema-di-posta)
+  * [10.1 Verifica della raggiungibilità dei servizi](#101-verifica-della-raggiungibilità-dei-servizi)
 
-    * [9.4.1 Verifica dei topic e dei messaggi tramite Kafka UI](#941-verifica-dei-topic-e-dei-messaggi-tramite-kafka-ui)
-    * [9.4.2 Verifica dell’invio email tramite Mailtrap](#942-verifica-dellinvio-email-tramite-mailtrap)
+    * [10.1.1 Endpoint di health (se presenti) o semplice ping](#1011-endpoint-di-health-se-presenti-o-semplice-ping)
 
-* [10. Troubleshooting](#10-troubleshooting)
+  * [10.2 Log dei microservizi](#102-log-dei-microservizi)
 
-  * [10.1 Problemi comuni in fase di build](#101-problemi-comuni-in-fase-di-build)
+    * [10.2.1 Accesso ai log via Kubernetes (`kubectl logs`)](#1021-accesso-ai-log-via-kubernetes-kubectl-logs)
+    * [10.2.2 Principali messaggi informativi/di errore da tenere d’occhio](#1022-principali-messaggi-informativodi-errore-da-tenere-docchio)
 
-    * [10.1.1 Mancanza di JDK/Maven (in build locale)](#1011-mancanza-di-jdkmaven-in-build-locale)
-    * [10.1.2 Errori di build delle immagini Docker](#1012-errori-di-build-delle-immagini-docker)
-  * [10.2 Problemi comuni in fase di run](#102-problemi-comuni-in-fase-di-run)
+  * [10.3 Diagnostica del database](#103-diagnostica-del-database)
 
-    * [10.2.1 Il database non si avvia correttamente](#1021-il-database-non-si-avvia-correttamente)
-    * [10.2.2 I servizi non riescono a connettersi a PostgreSQL](#1022-i-servizi-non-riescono-a-connettersi-a-postgresql)
-    * [10.2.3 Errori di autenticazione verso OpenSky](#1023-errori-di-autenticazione-verso-opensky)
-    * [10.2.4 Problemi di connessione a Kafka](#1024-problemi-di-connessione-a-kafka)
-    * [10.2.5 Errori SMTP e mancato recapito delle email](#1025-errori-smtp-e-mancato-recapito-delle-email)
-    * [10.2.6 Comportamento del Circuit Breaker verso OpenSky](#1026-comportamento-del-circuit-breaker-verso-opensky)
-  * [10.3 Verifiche passo-passo per isolare gli errori](#103-verifiche-passo-passo-per-isolare-gli-errori)
+    * [10.3.1 Accesso a PostgreSQL (via CLI o client esterno)](#1031-accesso-a-postgresql-via-cli-o-client-esterno)
+    * [10.3.2 Verifica della creazione automatica di schemi e tabelle (Flyway)](#1032-verifica-della-creazione-automatica-di-schemi-e-tabelle-flyway)
 
-    * [10.3.1 Verifica variabili d’ambiente](#1031-verifica-variabili-dambiente)
-    * [10.3.2 Verifica delle porte occupate](#1032-verifica-delle-porte-occupate)
-    * [10.3.3 Controllo dei log dei singoli container](#1033-controllo-dei-log-dei-singoli-container)
+  * [10.4 Diagnostica di Kafka, Mailtrap e Prometheus](#104-diagnostica-di-kafka-mailtrap-e-prometheus)
 
-* [11. Validation Scenarios](#11-validation-scenarios)
+    * [10.4.1 Verifica dei topic e dei messaggi tramite Kafka UI](#1041-verifica-dei-topic-e-dei-messaggi-tramite-kafka-ui)
+    * [10.4.2 Verifica dell’invio email tramite Mailtrap](#1042-verifica-dellinvio-email-tramite-mailtrap)
+    * [10.4.3 Verifica scraping e metriche su Prometheus](#1043-verifica-scraping-e-metriche-su-prometheus)
 
-  * [11.1 Scenario minimo di smoke test](#111-scenario-minimo-di-smoke-test)
+* [11. Troubleshooting](#11-troubleshooting)
 
-    * [11.1.1 Avvio del sistema](#1111-avvio-del-sistema)
-    * [11.1.2 Creazione di un utente di test](#1112-creazione-di-un-utente-di-test)
-    * [11.1.3 Registrazione di un interesse per un aeroporto](#1113-registrazione-di-un-interesse-per-un-aeroporto)
-    * [11.1.4 Verifica del popolamento dei dati di volo](#1114-verifica-del-popolamento-dei-dati-di-volo)
-  * [11.2 Scenario di test della politica at-most-once](#112-scenario-di-test-della-politica-at-most-once)
+  * [11.1 Problemi comuni in fase di build](#111-problemi-comuni-in-fase-di-build)
 
-    * [11.2.1 Ripetizione di una registrazione utente](#1121-ripetizione-di-una-registrazione-utente)
-    * [11.2.2 Comportamento atteso (assenza di duplicati, codici HTTP attesi)](#1122-comportamento-atteso-assenza-di-duplicati-codici-http-attesi)
-  * [11.3 Scenario di interrogazione dei voli su intervalli temporali](#113-scenario-di-interrogazione-dei-voli-su-intervalli-temporali)
-  * [11.4 Scenario di configurazione e valutazione delle soglie](#114-scenario-di-configurazione-e-valutazione-delle-soglie)
+    * [11.1.1 Mancanza di JDK/Maven (in build locale)](#1111-mancanza-di-jdkmaven-in-build-locale)
+    * [11.1.2 Errori di build delle immagini Docker](#1112-errori-di-build-delle-immagini-docker)
+    * [11.1.3 Immagini non disponibili nel cluster kind (mancato `kind load`)](#1113-immagini-non-disponibili-nel-cluster-kind-mancato-kind-load)
 
-    * [11.4.1 Creazione di un interesse con `highValue`/`lowValue`](#1141-creazione-di-un-interesse-con-highvalue-lowvalue)
-    * [11.4.2 Generazione di un carico di voli che superi la soglia](#1142-generazione-di-un-carico-di-voli-che-superi-la-soglia)
-  * [11.5 Scenario end-to-end della pipeline di notifica](#115-scenario-end-to-end-della-pipeline-di-notifica)
+  * [11.2 Problemi comuni in fase di run](#112-problemi-comuni-in-fase-di-run)
 
-    * [11.5.1 Pubblicazione su `to-alert-system` e propagazione su `to-notifier`](#1151-pubblicazione-su-to-alert-system-e-propagazione-su-to-notifier)
-    * [11.5.2 Verifica finale della ricezione email](#1152-verifica-finale-della-ricezione-email)
-  * [11.6 Scenario con indisponibilità di OpenSky e Circuit Breaker attivo](#116-scenario-con-indisponibilità-di-opensky-e-circuit-breaker-attivo)
+    * [11.2.1 Pod in CrashLoopBackOff / ConfigMap-Secret mancanti](#1121-pod-in-crashloopbackoff--configmap-secret-mancanti)
+    * [11.2.2 Il database non si avvia correttamente](#1122-il-database-non-si-avvia-correttamente)
+    * [11.2.3 I servizi non riescono a connettersi a PostgreSQL](#1123-i-servizi-non-riescono-a-connettersi-a-postgresql)
+    * [11.2.4 Problemi di connessione a Kafka](#1124-problemi-di-connessione-a-kafka)
+    * [11.2.5 Errori di autenticazione verso OpenSky](#1125-errori-di-autenticazione-verso-opensky)
+    * [11.2.6 Errori SMTP e mancato recapito delle email](#1126-errori-smtp-e-mancato-recapito-delle-email)
+    * [11.2.7 Prometheus non mostra metriche / target DOWN](#1127-prometheus-non-mostra-metriche--target-down)
+
+  * [11.3 Verifiche passo-passo per isolare gli errori](#113-verifiche-passo-passo-per-isolare-gli-errori)
+
+    * [11.3.1 Verifica variabili d’ambiente (ConfigMap/Secret)](#1131-verifica-variabili-dambiente-configmapsecret)
+    * [11.3.2 Verifica delle porte occupate (port-forward)](#1132-verifica-delle-porte-occupate-port-forward)
+    * [11.3.3 Controllo dei log dei singoli Pod](#1133-controllo-dei-log-dei-singoli-pod)
+    * [11.3.4 Verifica risorse Kubernetes (get/describe/events)](#1134-verifica-risorse-kubernetes-getdescribeevents)
+
+* [12. Validation Scenarios](#12-validation-scenarios)
+
+  * [12.1 Scenario minimo di smoke test](#121-scenario-minimo-di-smoke-test)
+
+    * [12.1.1 Avvio del sistema](#1211-avvio-del-sistema)
+    * [12.1.2 Creazione di un utente di test](#1212-creazione-di-un-utente-di-test)
+    * [12.1.3 Registrazione di un interesse per un aeroporto](#1213-registrazione-di-un-interesse-per-un-aeroporto)
+    * [12.1.4 Verifica del popolamento dei dati di volo](#1214-verifica-del-popolamento-dei-dati-di-volo)
+
+  * [12.2 Scenario di test della politica at-most-once](#122-scenario-di-test-della-politica-at-most-once)
+
+    * [12.2.1 Ripetizione di una registrazione utente](#1221-ripetizione-di-una-registrazione-utente)
+    * [12.2.2 Comportamento atteso (assenza di duplicati, codici HTTP attesi)](#1222-comportamento-atteso-assenza-di-duplicati-codici-http-attesi)
+
+  * [12.3 Scenario di interrogazione dei voli su intervalli temporali](#123-scenario-di-interrogazione-dei-voli-su-intervalli-temporali)
+
+  * [12.4 Scenario di configurazione e valutazione delle soglie](#124-scenario-di-configurazione-e-valutazione-delle-soglie)
+
+    * [12.4.1 Creazione di un interesse con `highValue`/`lowValue`](#1241-creazione-di-un-interesse-con-highvalue-lowvalue)
+    * [12.4.2 Generazione di un carico di voli che superi la soglia](#1242-generazione-di-un-carico-di-voli-che-superi-la-soglia)
+
+  * [12.5 Scenario end-to-end della pipeline di notifica](#125-scenario-end-to-end-della-pipeline-di-notifica)
+
+    * [12.5.1 Pubblicazione su `to-alert-system` e propagazione su `to-notifier`](#1251-pubblicazione-su-to-alert-system-e-propagazione-su-to-notifier)
+    * [12.5.2 Verifica finale della ricezione email](#1252-verifica-finale-della-ricezione-email)
+
+  * [11.6 Scenario con indisponibilità di OpenSky e Circuit Breaker attivo](#126-scenario-con-indisponibilità-di-opensky-e-circuit-breaker-attivo)
+
+  * [12.7 Scenario di verifica del monitoring (metriche e label)](#127-scenario-di-verifica-del-monitoring-metriche-e-label)
+
+    * [12.7.1 Verifica target UP in Prometheus](#1271-verifica-target-up-in-prometheus)
+    * [12.7.2 Verifica COUNTER (incremento su workload)](#1272-verifica-counter-incremento-su-workload)
+    * [12.7.3 Verifica GAUGE (valore istantaneo)](#1273-verifica-gauge-valore-istantaneo)
+    * [12.7.4 Verifica label `service` e `node`](#1274-verifica-label-service-e-node)
 
 ## 1. Project Overview
 
@@ -227,7 +324,8 @@ L’obiettivo principale è fornire a un client esterno un insieme di API **coer
   * ultimo volo in arrivo o in partenza per un aeroporto;
   * interrogazioni su intervalli temporali arbitrari;
 * valutare le informazioni raccolte rispetto a **soglie di interesse configurabili per utente e aeroporto** (ad esempio ritardi minimi o massimi);
-* **generare notifiche asincrone via e‑mail** quando determinate condizioni sugli eventi di volo violano le soglie configurate.
+* **generare notifiche asincrone via e‑mail** quando determinate condizioni sugli eventi di volo violano le soglie configurate;
+* esporre **metriche tecniche e applicative** in formato Prometheus per attività di monitoring e troubleshooting.
 
 L’architettura è pensata per essere **modulare**, **estendibile** e orientata a una chiara separazione dei confini di responsabilità: la gestione degli utenti, la raccolta dei dati di volo, la valutazione delle soglie e l’invio delle notifiche sono affidati a componenti distinti, orchestrati tramite un mix di comunicazioni sincrone (REST/gRPC) e asincrone (Kafka).
 
@@ -242,7 +340,8 @@ L’applicazione è suddivisa in più microservizi Spring Boot **autonomi**, cia
 * l’*Alert System Service* elabora gli eventi di volo raccolti, valuta le soglie configurate e individua i casi che richiedono una notifica;
 * l’*Alert Notifier Service* riceve gli eventi di notifica e provvede all’invio delle e‑mail verso gli utenti finali;
 * l’*API Gateway* centralizza l’esposizione delle API HTTP verso l’esterno e instrada le richieste verso i microservizi interni appropriati;
-* il *Kafka Broker* fornisce l’infrastruttura di messaggistica per i flussi asincroni tra Data Collector, Alert System e Alert Notifier.
+* il *Kafka Broker* fornisce l’infrastruttura di messaggistica per i flussi asincroni tra Data Collector, Alert System e Alert Notifier;
+* *Prometheus* costituisce il sottosistema di monitoring per la raccolta e consultazione delle metriche esposte dai microservizi.
 
 Ogni microservizio applicativo utilizza un proprio schema logico all’interno di un’istanza PostgreSQL condivisa, espone API o interfacce specializzate (REST, gRPC, consumer/producer Kafka) e incapsula la logica di dominio in servizi dedicati, mantenendo separato il livello di esposizione delle API dal livello di persistenza e dalle integrazioni infrastrutturali.
 
@@ -270,6 +369,8 @@ Il **Data Collector Service** governa il **sottodominio aeroporti, interessi e d
 
 Il servizio utilizza il client HTTP dedicato a OpenSky, integra la logica di **Circuit Breaker** tramite Resilience4j per proteggere le chiamate verso il servizio esterno e si appoggia al servizio gRPC dello User Manager per validare l’esistenza degli utenti prima di registrare nuovi interessi.
 
+Il servizio integra inoltre **Spring Boot Actuator** e **Micrometer**, esponendo metriche in formato Prometheus tramite l’endpoint `/actuator/prometheus`.
+
 #### 1.2.3 Alert System Service
 
 L’**Alert System Service** è il componente incaricato di valutare le soglie configurate sugli interessi utente–aeroporto alla luce dei dati di volo effettivamente raccolti. Dal punto di vista architetturale:
@@ -280,6 +381,8 @@ L’**Alert System Service** è il componente incaricato di valutare le soglie c
 * produce un nuovo messaggio su un secondo topic Kafka (ad esempio `to-notifier`), contenente tutte le informazioni necessarie all’invio dell’e‑mail.
 
 In questo modo il servizio separa in modo netto la **logica di valutazione delle condizioni di alert** dalla raccolta dei dati e dall’invio effettivo delle notifiche, favorendo una maggiore manutenibilità e la possibilità di estendere le regole di alert in versioni successive.
+
+Il servizio integra inoltre **Spring Boot Actuator** e **Micrometer**, esponendo metriche in formato Prometheus tramite l’endpoint `/actuator/prometheus`.
 
 #### 1.2.4 Alert Notifier Service
 
@@ -294,13 +397,15 @@ Le sue responsabilità principali sono:
 
 Il servizio non espone API REST verso l’esterno, ma opera come componente di back-end guidato dagli eventi presenti nella coda Kafka.
 
+Il servizio integra inoltre **Spring Boot Actuator** e **Micrometer**, esponendo metriche in formato Prometheus tramite l’endpoint `/actuator/prometheus`.
+
 #### 1.2.5 API Gateway
 
 L’**API Gateway** è implementato tramite **NGINX** e funge da **punto di ingresso unico** per il traffico HTTP verso il sistema. A livello logico:
 
 * riceve le richieste in ingresso su una porta pubblica esposta dal container NGINX;
 * instrada le richieste verso i microservizi interni pertinenti (principalmente User Manager e Data Collector), sulla base di regole di *routing* definite nel file di configurazione;
-* consente di centralizzare alcuni aspetti trasversali, quali la gestione degli *path* di base, l’eventuale logging HTTP e la separazione tra rete esterna e rete interna Docker.
+* consente di centralizzare alcuni aspetti trasversali, quali la gestione degli *path* di base, l’eventuale logging HTTP e la separazione tra traffico esterno e rete interna del cluster.
 
 Questa componente permette di presentare verso l’esterno un **perimetro uniforme**, schermando i dettagli interni di deploy e degli indirizzi dei singoli microservizi.
 
@@ -308,9 +413,17 @@ Questa componente permette di presentare verso l’esterno un **perimetro unifor
 
 Il **Kafka Broker** fornisce l’infrastruttura di **messaggistica asincrona** alla base della pipeline di alerting. Nel contesto attuale:
 
-* viene eseguito come servizio Docker dedicato, affiancato dai componenti di coordinamento necessari (ad esempio Zookeeper);
+* viene eseguito come componente dedicato, affiancato dai componenti di coordinamento necessari (ad esempio Zookeeper);
 * espone i topic utilizzati dai microservizi applicativi, con particolare riferimento ai flussi `to-alert-system` e `to-notifier`;
 * consente a Data Collector, Alert System e Alert Notifier di scambiarsi eventi in maniera decoupled, supportando l’elaborazione asincrona e una migliore resilienza rispetto a picchi di carico o temporanee indisponibilità.
+
+#### 1.2.7 Prometheus
+
+**Prometheus** è il componente adottato per il **monitoring** del sistema tramite metriche. In particolare:
+
+* effettua lo *scraping* periodico degli endpoint `/actuator/prometheus` esposti dai microservizi strumentati;
+* indicizza le serie temporali raccolte, rendendole interrogabili tramite **PromQL**;
+* consente di osservare sia metriche **tecniche** (runtime, richieste, tempi di risposta) sia metriche **applicative** (chiamate a OpenSky, messaggi elaborati nella pipeline di alerting, invii e‑mail).
 
 ---
 
@@ -358,24 +471,26 @@ Nella cartella `documentation/` sono presenti le **relazioni tecniche** che desc
 
 * `documentation/homework-1/written_report.pdf`: documenta l’architettura di base centrata sui microservizi **User Manager** e **Data Collector**, l’integrazione con **OpenSky Network** e **PostgreSQL**, i requisiti funzionali e non funzionali iniziali e i flussi core di raccolta e interrogazione dei dati di volo.
 * `documentation/homework-2/written_report.pdf`: estende la descrizione precedente introducendo i microservizi **Alert System** e **Alert Notifier**, l’**API Gateway** basato su NGINX, la pipeline event‑driven su **Kafka**, i meccanismi di **Circuit Breaker** verso OpenSky e l’evoluzione del modello dati per la gestione delle soglie.
+* `documentation/homework-3/written_report.pdf`: completa la descrizione del sistema introducendo il sottosistema di **monitoring** basato su **Prometheus**, la strumentazione tramite **Actuator/Micrometer** e gli aspetti di deployment su cluster, con particolare attenzione alla raccolta e consultazione delle metriche applicative.
 
-Le due relazioni sono pensate per essere lette in modo complementare: la prima fornisce il contesto e le fondamenta architetturali del sistema, la seconda introduce lo strato evolutivo, indicando in modo esplicito quali componenti e sezioni della documentazione precedente restano pienamente valide e quali risultano integrate o sostituite.
+Le tre relazioni sono pensate per essere lette in modo complementare: la prima fornisce il contesto e le fondamenta architetturali del sistema, la seconda introduce lo strato evolutivo relativo ad alerting e notifiche, la terza aggiunge osservabilità e monitoring tramite metriche.
 
 #### 1.4.2 Diagrammi architetturali e di sequenza
 
-All’interno di `documentation/homework-1/diagram_screenshots/` e `documentation/homework-2/diagram_screenshots/` sono disponibili i **diagrammi architetturali** e i **diagrammi di sequenza** principali.
+All’interno di `documentation/homework-1/diagram_screenshots/`, `documentation/homework-2/diagram_screenshots/` e `documentation/homework-3/diagram_screenshots/` sono disponibili i **diagrammi architetturali** e i **diagrammi di sequenza** principali.
 
 * Il set di diagrammi associato alla prima versione illustra l’architettura centrata su User Manager, Data Collector, PostgreSQL e OpenSky, con i flussi sincroni di registrazione utente, registrazione degli interessi e raccolta/interrogazione dei voli.
-* Il set di diagrammi associato alla versione corrente rappresenta l’architettura estesa con Alert System, Alert Notifier, API Gateway, Kafka e server SMTP, oltre ai flussi aggiuntivi di configurazione e aggiornamento delle soglie, pipeline di notifica asincrona (Data Collector → Alert System → Alert Notifier → Mailtrap) e gestione delle failure verso OpenSky tramite Circuit Breaker.
+* Il set di diagrammi associato alla seconda versione rappresenta l’architettura estesa con Alert System, Alert Notifier, API Gateway, Kafka e server SMTP, oltre ai flussi aggiuntivi di configurazione e aggiornamento delle soglie, pipeline di notifica asincrona (Data Collector → Alert System → Alert Notifier → Email) e gestione delle failure verso OpenSky tramite Circuit Breaker.
+* Il set di diagrammi associato alla terza versione evidenzia l’integrazione del sottosistema di monitoring con Prometheus, includendo la raccolta delle metriche applicative e lo scraping periodico degli endpoint esposti dai microservizi.
 
-I diagrammi sono organizzati per facilitare il confronto tra le due versioni e permettere di seguire, anche visivamente, l’evoluzione delle responsabilità tra microservizi e componenti infrastrutturali.
+I diagrammi sono organizzati per facilitare il confronto tra le versioni e permettere di seguire, anche visivamente, l’evoluzione delle responsabilità tra microservizi e componenti infrastrutturali.
 
 #### 1.4.3 Diagramma Entity–Relationship (ER)
 
-In ciascuna delle sottocartelle di documentazione è presente un **diagramma Entity–Relationship (ER)** che rappresenta lo schema logico dei database.
+Nelle sottocartelle `documentation/homework-1/diagram_screenshots/` e `documentation/homework-2/diagram_screenshots/` è presente un **diagramma Entity–Relationship (ER)** che rappresenta lo schema logico dei database.
 
 * Il diagramma della prima versione mostra le entità `User` nel *User DB* e `Airport`, `UserAirportInterest` e `FlightRecord` nel *Data DB*, insieme a chiavi primarie, vincoli di unicità e relazioni fra i domini utente e aeroporti–voli.
-* Il diagramma aggiornato della versione corrente evidenzia l’estensione di `UserAirportInterest` con gli attributi di soglia (`high_value`, `low_value`) e l’impatto di tali modifiche sulle query e sui processi di raccolta e valutazione dei dati.
+* Il diagramma aggiornato della seconda versione evidenzia l’estensione di `UserAirportInterest` con gli attributi di soglia (`high_value`, `low_value`) e l’impatto di tali modifiche sulle query e sui processi di raccolta e valutazione dei dati.
 
 Questi artefatti costituiscono il riferimento principale per collegare modello concettuale, modello logico e implementazione JPA/Flyway nei diversi microservizi.
 
@@ -384,24 +499,26 @@ Questi artefatti costituiscono il riferimento principale per collegare modello c
 La documentazione è organizzata in modo da riflettere esplicitamente il ciclo evolutivo del sistema:
 
 * la **prima versione** descrive il perimetro funzionale di raccolta e interrogazione dei dati di volo, con due microservizi principali e un’integrazione sincrona verso OpenSky;
-* la **versione corrente** introduce la gestione di soglie configurabili, la pipeline di alerting basata su Kafka, i servizi dedicati all’elaborazione degli alert e alla notifica e‑mail, nonché la mediazione centralizzata delle richieste tramite API Gateway.
+* la **seconda versione** introduce la gestione di soglie configurabili, la pipeline di alerting basata su Kafka, i servizi dedicati all’elaborazione degli alert e alla notifica e‑mail, nonché la mediazione centralizzata delle richieste tramite API Gateway;
+* la **terza versione** aggiunge un sottosistema di monitoring basato su Prometheus, con metriche tecniche e applicative esposte dai microservizi per supportare analisi e troubleshooting.
 
-Le relazioni tecniche, i diagrammi architetturali, i diagrammi di sequenza e i diagrammi ER sono pertanto da considerare come livelli successivi di una stessa documentazione: il materiale della prima versione fornisce la base concettuale e architetturale, mentre quello della versione corrente ne rappresenta l’estensione e il raffinamento, preservando la coerenza complessiva del sistema.
+Le relazioni tecniche, i diagrammi architetturali, i diagrammi di sequenza e i diagrammi ER sono pertanto da considerare come livelli successivi di una stessa documentazione: il materiale della prima versione fornisce la base concettuale e architetturale, quello della seconda ne rappresenta l’estensione funzionale per alerting e notifiche, mentre quello della terza consolida gli aspetti di osservabilità tramite metriche.
 
 ## 2. Repository Structure
 
 ### 2.1 Root layout della repository
 
-Nella directory radice sono presenti le cartelle e i file necessari per gestire l’intero ciclo di vita della piattaforma, dalla build al deploy in ambiente Docker. A livello logico, la root contiene:
+Nella directory radice sono presenti le cartelle e i file necessari per gestire l’intero ciclo di vita della piattaforma, dalla **build delle immagini container** al **deploy su cluster Kubernetes** (con supporto opzionale per l’avvio locale tramite Docker Compose). A livello logico, la root contiene:
 
 * le directory dei quattro microservizi applicativi (`user-manager-service/`, `data-collector-service/`, `alert-system-service/`, `alert-notifier-service/`), ciascuna con il proprio codice applicativo e la propria configurazione;
-* la directory `api-gateway/`, che raccoglie la configurazione del reverse proxy NGINX utilizzato come punto di ingresso unico verso i microservizi interni;
-* la directory `docker/`, che raccoglie i file di orchestrazione e configurazione dell’infrastruttura (PostgreSQL, Kafka, Zookeeper, Kafka UI, API Gateway e servizi applicativi);
+* la directory `docker/`, che raccoglie i file di orchestrazione e configurazione dell’infrastruttura in modalità containerizzata (PostgreSQL, Kafka, Zookeeper, Kafka UI, Prometheus, API Gateway e servizi applicativi), principalmente a supporto di esecuzioni locali;
+* la directory `k8s/`, che contiene i manifest Kubernetes e le configurazioni **Kustomize** per il deploy dello stack completo (servizi applicativi, infrastruttura dati/messaging e sottosistema di monitoring);
+* la directory `scripts/`, che include script di supporto per **build**, creazione/gestione di cluster **kind** e caricamento delle immagini nel cluster;
 * la directory `documentation/`, che contiene le relazioni tecniche e i diagrammi di supporto;
 * la directory `postman/`, che include le collection pronte all’uso per verificare rapidamente le API esposte dai servizi applicativi;
-* i file di supporto generali, come ad esempio il `README.md` (questo documento) e gli eventuali file di configurazione per il versionamento.
+* i file di supporto generali, come ad esempio il `README.md` (questo documento), il `pom.xml` di aggregazione Maven e gli eventuali file di configurazione per il versionamento.
 
-Questa impostazione consente a chiunque acceda per la prima volta al repository di individuare rapidamente i microservizi, l’infrastruttura containerizzata e la documentazione tecnica.
+Questa impostazione consente a chiunque acceda per la prima volta al repository di individuare rapidamente i microservizi, i manifest di deploy, le risorse infrastrutturali e la documentazione tecnica.
 
 ---
 
@@ -425,19 +542,101 @@ La struttura delle cartelle è organizzata in modo da separare in maniera netta 
 
 Ciascun microservizio è organizzato come progetto **Spring Boot** basato su **Maven**, con una struttura omogenea che facilita la manutenzione e la configurazione coerente dell’intero sistema.
 
-#### 2.2.2 Infrastruttura Docker (PostgreSQL, Kafka, Zookeeper, Kafka UI, API Gateway)
+In questa release, i microservizi **Data Collector**, **Alert System** e **Alert Notifier** integrano inoltre **Spring Boot Actuator** e **Micrometer** con registry Prometheus, esponendo l’endpoint `*/actuator/prometheus` per la raccolta delle metriche applicative.
 
-* **`docker/`**
-  Raccoglie tutti i file necessari per l’orchestrazione dell’infrastruttura containerizzata. In particolare, al suo interno sono presenti:
+#### 2.2.2 Infrastruttura applicativa (API Gateway)
 
-  * `docker-compose.yml`, che definisce i servizi Docker per **PostgreSQL**, i quattro microservizi applicativi, il **Kafka broker**, **Zookeeper**, la **Kafka UI** e l’**API Gateway** basato su NGINX;
-  * la directory `db/`, che contiene gli script SQL di inizializzazione del database (`db/init/`);
-  * la directory `env/`, che raccoglie i file `.env` utilizzati per parametrizzare le credenziali del database e le variabili condivise tra i servizi;
-  * la directory `nginx/`, che contiene il file di configurazione dell’API Gateway (`nginx.conf`).
+L’**API Gateway** è realizzato tramite **NGINX** con configurazione esplicita delle regole di reverse proxy verso i servizi interni.
 
-Questa directory rappresenta il punto centrale di configurazione per l’esecuzione dell’intero sistema in ambiente containerizzato.
+* La configurazione NGINX per l’esecuzione containerizzata è mantenuta in `docker/nginx/nginx.conf`.
+* La configurazione NGINX per l’esecuzione su Kubernetes è gestita come **ConfigMap** in `k8s/apps/api-gateway/01-nginx-configmap.yaml`, affiancata dai manifest di **Deployment** e **Service** nella stessa directory (`k8s/apps/api-gateway/`).
 
-#### 2.2.3 Documentazione e diagrammi
+Questa separazione consente di mantenere coerente la logica di routing (path e upstream) nei diversi ambienti di esecuzione, adattando soltanto i dettagli infrastrutturali (service discovery e porte esposte).
+
+#### 2.2.3 Infrastruttura di messaging (Kafka, Zookeeper, Kafka UI)
+
+Il sottosistema di messaging è basato su **Kafka** (con **Zookeeper** per il coordinamento) ed espone una **Kafka UI** per l’osservabilità dei topic e dei messaggi.
+
+* **`k8s/infra/kafka/`**
+  Contiene i manifest Kubernetes per:
+
+  * **Zookeeper** (Deployment/Service);
+  * **Kafka broker** (Deployment/Service);
+  * **Kafka UI** (Deployment/Service).
+
+  La directory include inoltre il relativo `kustomization.yaml`, per l’inclusione modulare nello stack.
+
+* **`docker/docker-compose.yml`**
+  Definisce, in modalità containerizzata, gli stessi componenti di messaging (Kafka, Zookeeper, Kafka UI) a supporto di avvii locali.
+
+#### 2.2.4 Infrastruttura di monitoring (Prometheus)
+
+Il monitoring è basato su **Prometheus**, configurato per lo scraping delle metriche esposte dai microservizi strumentati.
+
+* **`k8s/observability/prometheus/`**
+  Contiene i manifest Kubernetes del sottosistema Prometheus, includendo:
+
+  * **ServiceAccount** e regole **RBAC** (permessi minimi necessari per la service discovery);
+  * **ConfigMap** con `prometheus.yml`, che definisce gli *scrape_configs* verso gli endpoint `*/actuator/prometheus` dei servizi applicativi;
+  * **Deployment** e **Service** per l’esposizione dell’interfaccia Prometheus.
+
+  La directory include inoltre il relativo `kustomization.yaml`, per l’inclusione modulare nello stack complessivo.
+
+* **`docker/docker-compose.yml`**
+  Include anche un servizio Prometheus per l’esecuzione containerizzata locale.
+
+* **`docker/prometheus/prometheus.yaml`**
+  Definisce la configurazione di Prometheus utilizzata in modalità Docker Compose (in particolare gli *scrape_configs*), e viene **montata** dal servizio Prometheus nel `docker-compose.yml` come file di configurazione, in modo da mantenere lo scraping allineato agli endpoint `*/actuator/prometheus` dei servizi strumentati.
+
+#### 2.2.5 Manifest Kubernetes (`k8s/`) e Kustomize
+
+La directory **`k8s/`** rappresenta il punto centrale per il deploy su Kubernetes ed è strutturata per componenti, secondo un approccio dichiarativo e componibile tramite **Kustomize**:
+
+* **`k8s/00-namespace.yaml`**
+  Definisce il namespace dedicato (`dsbd`) e le label applicative.
+
+* **`k8s/config/`**
+  Contiene risorse di configurazione condivise (ConfigMap/Secret) e il relativo `kustomization.yaml`.
+
+* **`k8s/infra/`**
+  Include i componenti infrastrutturali necessari allo stack:
+
+  * `k8s/infra/postgres/` (ConfigMap di init, PVC, Deployment, Service);
+  * `k8s/infra/kafka/` (Zookeeper, Kafka, Kafka UI).
+
+* **`k8s/apps/`**
+  Contiene i manifest applicativi per:
+
+  * `user-manager-service/`, `data-collector-service/`, `alert-system-service/`, `alert-notifier-service/` (Deployment/Service);
+  * `api-gateway/` (ConfigMap NGINX, Deployment, Service).
+
+* **`k8s/stack/`**
+  Aggrega, tramite `kustomization.yaml`, tutte le risorse applicative e infrastrutturali (config, database, messaging, microservizi, gateway) in un unico entry-point di deploy.
+
+* **`k8s/observability/`**
+  Contiene i componenti di osservabilità; in particolare `observability/prometheus/` per il monitoring.
+
+* **`k8s/kustomization.yaml`**
+  Definisce la composizione complessiva includendo lo stack (`k8s/stack/`) e l’osservabilità (`k8s/observability/prometheus/`).
+
+* **`k8s/kind/`**
+  Contiene la configurazione del cluster **kind** (`kind-cluster.yaml`) utilizzata dagli script di bootstrap dell’ambiente locale Kubernetes.
+
+Questa organizzazione consente di mantenere separati i concern applicativi e infrastrutturali, favorendo riuso, portabilità e riproducibilità del deploy.
+
+#### 2.2.6 Script di supporto (build, kind, deploy)
+
+* **`scripts/`**
+  Contiene script di supporto per automatizzare le operazioni ricorrenti. In particolare:
+
+  * `scripts/build-images.sh` e `scripts/build-images.ps1` eseguono la build delle immagini Docker dei microservizi con tag parametrico;
+  * `scripts/kind/create-cluster.*` e `scripts/kind/delete-cluster.*` creano ed eliminano un cluster **kind** locale, applicando il namespace dedicato;
+  * `scripts/kind/load-images.*` carica nel cluster kind le immagini locali buildate (utile in assenza di registry);
+  * `scripts/kind/dev-loop.*` implementa un *development loop* (build → load → rollout restart) per rendere effettive le nuove immagini su Kubernetes anche in presenza di tag fissi.
+
+La presenza di versioni **`.sh`** e **`.ps1`** consente l’utilizzo su ambienti Linux/macOS e Windows.
+
+#### 2.2.7 Documentazione e diagrammi
 
 * **`documentation/`**
   Contiene la documentazione tecnica del sistema e i diagrammi architetturali e di dettaglio, organizzati per versione della piattaforma.
@@ -456,9 +655,15 @@ Questa directory rappresenta il punto centrale di configurazione per l’esecuzi
     * `documentation/homework-2/written_report.pdf`, che estende la relazione tecnica precedente con la descrizione dei microservizi **Alert System** e **Alert Notifier**, dell’**API Gateway** basato su NGINX, del broker **Kafka**, dei meccanismi di **Circuit Breaker** verso OpenSky e dell’evoluzione del modello dati per la gestione delle soglie di interesse;
     * `documentation/homework-2/diagram_screenshots/`, che contiene i diagrammi aggiornati: diagramma architetturale della versione estesa, diagramma ER con gli attributi di soglia, diagrammi di sequenza relativi alla configurazione e aggiornamento delle soglie, alla pipeline di notifica asincrona (Data Collector → Alert System → Alert Notifier → Email) e alla gestione delle failure verso OpenSky.
 
-La struttura versionata della directory `documentation/` consente di mantenere separati, ma facilmente confrontabili, gli artefatti relativi alla versione di base e quelli relativi alla versione corrente del sistema.
+  * **`documentation/homework-3/`**
+    Raccoglie gli artefatti relativi alla versione che introduce il deploy su **Kubernetes** e il sottosistema di monitoring:
 
-#### 2.2.4 Postman collections
+    * `documentation/homework-3/written_report.pdf`, che descrive l’estensione architetturale con manifest Kubernetes/Kustomize, l’esecuzione su cluster locale (kind) e l’integrazione di **Prometheus** per la raccolta delle metriche;
+    * `documentation/homework-3/diagram_screenshots/`, che contiene i diagrammi aggiornati (architettura su Kubernetes con Prometheus e diagrammi di sequenza relativi a pipeline di notifica e scraping delle metriche).
+
+La struttura versionata della directory `documentation/` consente di mantenere separati, ma facilmente confrontabili, gli artefatti relativi alle diverse evoluzioni del sistema.
+
+#### 2.2.8 Postman collections
 
 * **`postman/`**
   Contiene le **Postman collections** utilizzate per esercitare e validare le API esposte dai microservizi applicativi. Le collection sono organizzate per versione, in modo da riflettere l’evoluzione del sistema.
@@ -477,6 +682,9 @@ La struttura versionata della directory `documentation/` consente di mantenere s
     * `postman/homework-2/hw2 - user-manager-api.postman_collection.json`, che mantiene e organizza le richieste relative allo *User Manager Service* (creazione, lettura, cancellazione utente e verifica dell’idempotenza), utilizzabili in continuità con la versione precedente;
     * `postman/homework-2/hw2 - data-collector-api.postman_collection.json`, che estende il set di richieste verso il *Data Collector Service* includendo, oltre alle operazioni già presenti nella versione di base, gli endpoint per la configurazione delle **soglie** (`highValue`/`lowValue`) sugli interessi e le interrogazioni funzionali a pilotare gli scenari di valutazione e di notifica.
 
+  * **`postman/homework-3/`**
+    Include le collection di test allineate alla versione che introduce il deploy su Kubernetes. In questa versione, l’esposizione delle API applicative rimane coerente con la release precedente; pertanto le collection sono mantenute (ed eventualmente riutilizzate) per pilotare gli stessi scenari funzionali attraverso gli endpoint pubblicati dal gateway.
+
 Le collection possono essere importate direttamente in Postman per eseguire in modo controllato le richieste preconfigurate verso i microservizi, utilizzando gli endpoint esposti (direttamente o tramite API Gateway) e i parametri di configurazione descritti nel presente README.
 
 ---
@@ -485,10 +693,28 @@ Le collection possono essere importate direttamente in Postman per eseguire in m
 
 Alcuni file del repository rivestono un ruolo centrale nelle procedure di build e deploy e meritano una menzione esplicita.
 
+* **`k8s/kustomization.yaml`** e **`k8s/stack/kustomization.yaml`**
+  Definiscono, tramite **Kustomize**, la composizione delle risorse Kubernetes necessarie al deploy dello stack. In particolare, `k8s/stack/` aggrega configurazione, database, messaging, microservizi e gateway, mentre `k8s/kustomization.yaml` include anche il sottosistema Prometheus.
+
+* **`k8s/config/01-configmap.yaml`** e **`k8s/config/02-secret.yaml`**
+  Centralizzano la configurazione applicativa e le credenziali (in forma di Secret) condivise tra più componenti, evitando duplicazioni nei singoli manifest.
+
+* **`k8s/infra/postgres/01-initdb-configmap.yaml`** e **Script SQL di inizializzazione**
+  Definiscono l’inizializzazione del database in Kubernetes (creazione dei database logici) e assicurano che l’ambiente dati sia predisposto prima dell’avvio dei microservizi.
+
+* **`k8s/observability/prometheus/03-configmap.yaml`**
+  Contiene la configurazione `prometheus.yml` per lo scraping delle metriche applicative esposte dai servizi strumentati tramite endpoint `*/actuator/prometheus`.
+
+* **`scripts/build-images.sh` / `scripts/build-images.ps1`**
+  Automatizzano la build delle immagini Docker dei microservizi, producendo tag coerenti (es. `dsbd/<service>:<tag>`) riutilizzabili nelle fasi di caricamento e deploy.
+
+* **`scripts/kind/*`** e **`k8s/kind/kind-cluster.yaml`**
+  Supportano la creazione e gestione del cluster **kind** locale e il caricamento delle immagini nel cluster, rendendo riproducibile l’ambiente Kubernetes senza dipendere da un registry esterno.
+
 * **`docker/docker-compose.yml`**
   Definisce l’orchestrazione completa dell’ambiente di esecuzione containerizzato. In questo file sono specificati:
 
-  * i servizi Docker (`postgres`, `user-manager-service`, `data-collector-service`, `alert-system-service`, `alert-notifier-service`, `kafka`, `zookeeper`, `kafka-ui`, `api-gateway`);
+  * i servizi Docker (`postgres`, `user-manager-service`, `data-collector-service`, `alert-system-service`, `alert-notifier-service`, `kafka`, `zookeeper`, `kafka-ui`, `prometheus`, `api-gateway`);
   * le immagini da utilizzare o generare, i *build context* e i `Dockerfile` associati;
   * i volumi per la persistenza dei dati PostgreSQL e per eventuali mount di configurazione;
   * le reti interne utilizzate per la comunicazione tra i container;
@@ -500,17 +726,14 @@ Alcuni file del repository rivestono un ruolo centrale nelle procedure di build 
 * **`docker/env/services.env`**
   Raccoglie le variabili d’ambiente comuni ai microservizi, tra cui le informazioni di connessione al database, le credenziali per l’accesso a OpenSky, i parametri di configurazione del broker Kafka e le impostazioni per l’invio delle email. In questo modo è possibile gestire in un unico punto i valori che devono essere condivisi tra più container, rendendo agevole l’adattamento del sistema a diversi ambienti.
 
-* **`api-gateway/nginx/nginx.conf`**
-  Descrive la configurazione del reverse proxy NGINX utilizzato come API Gateway. In questo file sono definiti i *virtual server*, le regole di routing delle richieste verso i vari microservizi interni, le porte esposte e le eventuali intestazioni aggiuntive necessarie per il corretto inoltro delle chiamate.
+* **`docker/nginx/nginx.conf`** e **`k8s/apps/api-gateway/01-nginx-configmap.yaml`**
+  Descrivono la configurazione del reverse proxy NGINX utilizzato come API Gateway nei diversi ambienti (containerizzato e Kubernetes), definendo i *virtual server*, le regole di routing e le porte esposte.
 
 * **`user-manager-service/Dockerfile`**, **`data-collector-service/Dockerfile`**, **`alert-system-service/Dockerfile`** e **`alert-notifier-service/Dockerfile`**
   Descrivono il processo di build delle immagini Docker per i quattro microservizi applicativi. Ogni Dockerfile è strutturato come *multi-stage build* per separare la fase di compilazione Maven dalla fase di runtime, producendo un’immagine finale più leggera basata su una immagine JDK/JRE minimal.
 
-* **`user-manager-service/pom.xml`**, **`data-collector-service/pom.xml`**, **`alert-system-service/pom.xml`** e **`alert-notifier-service/pom.xml`**
-  Definiscono le dipendenze, i plugin e le configurazioni necessarie alla build Maven dei singoli microservizi. Questi file sono il riferimento principale per la build locale senza Docker e per integrare il progetto in pipeline CI/CD.
-
-* **Script SQL di inizializzazione in `docker/db/init/`**
-  Comprendono gli script per la creazione dei database logici e degli schemi necessari al corretto popolamento delle tabelle applicative. L’esecuzione automatica di questi script garantisce che l’ambiente dati sia sempre predisposto prima dell’esecuzione delle migrazioni applicative e dell’avvio dei microservizi.
+* **`pom.xml`** (root) e **`*/pom.xml`** (microservizi)
+  Il `pom.xml` in root aggrega i moduli dei microservizi e consente build coordinate, mentre i `pom.xml` dei singoli servizi definiscono dipendenze, plugin e configurazioni necessarie alla build Maven (utile sia per build locali sia per integrazione in pipeline CI/CD).
 
 Nel complesso, questi file costituiscono il nucleo operativo necessario per costruire ed eseguire l’intero sistema in modo riproducibile e controllato in diversi contesti di esecuzione.
 
@@ -518,11 +741,13 @@ Nel complesso, questi file costituiscono il nucleo operativo necessario per cost
 
 ### 3.1 Requisiti hardware e sistema operativo
 
-Il sistema è progettato per essere eseguito su una macchina in grado di eseguire **Docker** e, opzionalmente, una toolchain Java locale per la build e il run dei microservizi al di fuori dei container. Sono raccomandate le seguenti caratteristiche minime:
+Il sistema è progettato per essere eseguito su una macchina in grado di sostenere l’esecuzione contemporanea di più microservizi, componenti infrastrutturali e relativi container. Sono raccomandate le seguenti caratteristiche minime:
 
 * CPU: almeno **2 core** fisici (4 thread consigliati) per evitare contenention eccessiva fra i container;
 * RAM: almeno **8 GB** di memoria, con **16 GB** consigliati per lavorare in modo agevole con Docker, IDE e altri strumenti aperti in parallelo;
 * Storage: almeno **5–10 GB** di spazio libero dedicato ai container Docker, alle immagini e ai log applicativi.
+
+Per l’esecuzione su **cluster Kubernetes locale (kind)** e per l’avvio di componenti aggiuntivi (es. **Prometheus**), è consigliato disporre di almeno **16 GB** di RAM, soprattutto su Windows/macOS dove Docker Desktop e la virtualizzazione hanno un overhead non trascurabile.
 
 Per quanto riguarda il sistema operativo, il progetto è stato pensato per ambienti moderni e supportati:
 
@@ -536,11 +761,11 @@ Per quanto riguarda il sistema operativo, il progetto è stato pensato per ambie
 
 ### 3.2 Software necessario
 
-Il funzionamento completo della piattaforma richiede un insieme di strumenti software. Alcuni sono **obbligatori** per l’esecuzione standard tramite Docker, altri sono **opzionali ma raccomandati** per la build e il run locale dei servizi.
+Il funzionamento completo della piattaforma richiede un insieme di strumenti software. Alcuni sono **obbligatori** per l’esecuzione standard su cluster Kubernetes locale (basato su *kind*), altri sono **opzionali ma raccomandati** per la build e il run locale dei servizi.
 
 #### 3.2.1 Docker
 
-**Docker** è il requisito principale per l’esecuzione containerizzata dell’intero sistema (PostgreSQL + microservizi). Si raccomanda l’installazione di una versione recente, ad esempio:
+**Docker** è il requisito principale per l’esecuzione containerizzata dell’ambiente (in particolare come runtime per i nodi del cluster *kind* e per la build delle immagini applicative). Si raccomanda l’installazione di una versione recente, ad esempio:
 
 * Docker Engine / Docker Desktop **20.x** o superiore.
 
@@ -550,19 +775,35 @@ La presenza di Docker consente di:
 * eseguire i microservizi all’interno di container isolati;
 * riprodurre con facilità l’ambiente di esecuzione su macchine differenti.
 
-#### 3.2.2 Docker Compose
+#### 3.2.2 kubectl
 
-Il progetto utilizza **Docker Compose** per orchestrare l’avvio congiunto dei servizi. In base alla versione di Docker installata, Docker Compose può essere integrato come **sottocomando** (`docker compose`) o come binario separato (`docker-compose`).
+**kubectl** è il client a riga di comando utilizzato per interagire con il cluster Kubernetes (creato tramite *kind*). È necessario per:
 
-È consigliato l’utilizzo della sintassi moderna:
+* applicare i manifest (`kubectl apply` / `kubectl apply -k`);
+* verificare lo stato delle risorse (*pods*, *deployments*, *services*, ecc.);
+* consultare log ed eventi del cluster per attività di diagnostica.
 
-```bash
-docker compose version
-```
+È raccomandato utilizzare una versione di `kubectl` compatibile con la versione di Kubernetes fornita dal cluster *kind*.
 
-Una versione recente di Docker Desktop include già Docker Compose v2.x, sufficiente per eseguire il file `docker/docker-compose.yml` fornito nella repository.
+#### 3.2.3 kind
 
-#### 3.2.3 JDK (per build/esecuzione locale senza Docker)
+**kind** (*Kubernetes IN Docker*) consente di creare un cluster Kubernetes locale utilizzando container Docker come nodi. Nel progetto viene impiegato per:
+
+* predisporre un ambiente Kubernetes riproducibile su una singola macchina;
+* eseguire il deploy della piattaforma tramite i manifest presenti in repository;
+* validare end-to-end il comportamento del sistema in un contesto coerente con un’infrastruttura Kubernetes.
+
+#### 3.2.4 Kustomize (opzionale: alternativa a `kubectl apply -k`)
+
+**Kustomize** è uno strumento per la gestione di manifest Kubernetes tramite overlay e composizione (*base* / *overlays*). Nel progetto è utilizzabile per:
+
+* applicare in modo dichiarativo un insieme di risorse Kubernetes coerenti tra loro;
+* mantenere separati manifest “base” e personalizzazioni (ad es. override di immagini, variabili, replica count);
+* semplificare l’applicazione dello stack tramite un singolo comando.
+
+In molti ambienti, Kustomize è già integrato in `kubectl` tramite l’opzione `-k`.
+
+#### 3.2.5 JDK (per build/esecuzione locale senza Docker)
 
 Per chi desidera eseguire i microservizi localmente (senza containerizzarli), è necessario disporre di un **Java Development Kit (JDK)** compatibile con la versione di Spring Boot utilizzata. Si raccomanda:
 
@@ -570,7 +811,7 @@ Per chi desidera eseguire i microservizi localmente (senza containerizzarli), è
 
 È importante che il comando `java` punti al JDK e non a un JRE obsoleto, in modo da garantire il corretto funzionamento dei plugin Maven e delle applicazioni Spring Boot.
 
-#### 3.2.4 Maven (per build/esecuzione locale senza Docker)
+#### 3.2.6 Maven (per build/esecuzione locale senza Docker)
 
 La build dei microservizi in modalità non containerizzata richiede **Apache Maven**. È sufficiente una versione recente, ad esempio:
 
@@ -601,7 +842,12 @@ Le credenziali associate all’account saranno utilizzate per ottenere un **acce
 
 #### 3.3.2 Ottenimento delle credenziali OAuth2 (client id/secret)
 
-L’integrazione con OpenSky è basata su **OAuth2 Client Credentials**, che richiede la definizione di una *client application* sul lato OpenSky con relativa coppia **client id / client secret**. Una volta ottenute tali credenziali, devono essere configurate come variabili d’ambiente o inserite nei file `env` previsti (ad esempio `docker/env/services.env`), in modo che il `Data Collector Service` possa:
+L’integrazione con OpenSky è basata su **OAuth2 Client Credentials**, che richiede la definizione di una *client application* sul lato OpenSky con relativa coppia **client id / client secret**. Una volta ottenute tali credenziali, devono essere configurate come variabili d’ambiente nei canali di deploy previsti:
+
+* in modalità containerizzata, valorizzando i file `env` dedicati (ad esempio `docker/env/services.env`);
+* in modalità Kubernetes, valorizzando `k8s/config/01-configmap.yaml` per i parametri **non sensibili** (ad es. endpoint di authorization e base URL delle API) e `k8s/config/02-secret.yaml` per i valori **sensibili** (client id e client secret). Tali risorse vengono poi importate nei Pod tramite `envFrom` nei manifest di Deployment.
+
+In questo modo il `Data Collector Service` può:
 
 * richiedere un *access token* al servidor di authorization configurato;
 * riutilizzare il token fino alla scadenza (`expires_in`), con successivo rinnovo automatico.
@@ -620,7 +866,7 @@ Per testare l’invio delle notifiche email senza utilizzare destinatari reali, 
    * *SMTP port*;
    * *username* e *password* SMTP generati dal provider;
    * eventuali flag di autenticazione (es. `auth = true`) e di sicurezza (es. `STARTTLS` abilitato).
-4. Mappare tali valori sulle variabili d’ambiente previste dal sistema (ad esempio tramite il file `docker/env/services.env`), in modo che il microservizio **Alert Notifier** possa stabilire una connessione autenticata al server SMTP al momento dell’invio di ogni notifica.
+4. Mappare tali valori sulle variabili d’ambiente previste dal sistema. In modalità containerizzata, i parametri possono essere valorizzati nei file `env` (ad esempio `docker/env/services.env`). In modalità Kubernetes, i valori **non sensibili** (host, porta, flag TLS, mittente) sono tipicamente collocati in `k8s/config/01-configmap.yaml`, mentre le credenziali **sensibili** (username e password SMTP) sono collocate in `k8s/config/02-secret.yaml` e importate nei Pod tramite `envFrom` nei manifest di Deployment. In questo modo il microservizio **Alert Notifier** può stabilire una connessione autenticata al server SMTP al momento dell’invio di ogni notifica.
 
 È buona pratica utilizzare una inbox dedicata esclusivamente a questo sistema, così da poter monitorare facilmente il flusso di email generate dalle condizioni di alert e distinguere tali messaggi da eventuali altri progetti che utilizzano lo stesso account Mailtrap.
 
@@ -636,10 +882,22 @@ Per controllare la versione di Docker:
 docker --version
 ```
 
-Per verificare la presenza di Docker Compose (sintassi moderna):
+Per verificare l’installazione di `kubectl`:
 
 ```bash
-docker compose version
+kubectl version --client
+```
+
+Per verificare l’installazione di `kind`:
+
+```bash
+kind version
+```
+
+Per verificare la disponibilità di Kustomize (se installato come binario dedicato):
+
+```bash
+kustomize version
 ```
 
 Per verificare l’installazione del JDK:
@@ -656,91 +914,63 @@ Per controllare la versione di Maven:
 mvn -v
 ```
 
-È opportuno infine validare che le variabili d’ambiente relative a OpenSky (client id, client secret, endpoint di authorization e API base URL) e al provider SMTP utilizzato per il testing (host, porta, credenziali e parametri di sicurezza della inbox Mailtrap) siano configurate correttamente nel contesto in cui verrà eseguito `docker compose` o i microservizi in locale.
+È opportuno infine validare che le variabili d’ambiente relative a OpenSky (client id, client secret, endpoint di authorization e API base URL) e al provider SMTP utilizzato per il testing (host, porta, credenziali e parametri di sicurezza della inbox Mailtrap) siano configurate correttamente nel contesto in cui verranno applicati i manifest Kubernetes (ad es. tramite `kubectl apply` / `kubectl apply -k`) o in cui verranno eseguiti i microservizi in locale.
 
 ## 4. Configuration
 
 ### 4.1 Strategie di configurazione (env-based configuration)
 
-La configurazione del sistema è basata su un approccio **env-based**, in cui i parametri sensibili o dipendenti dall’ambiente (host, porte, credenziali, URL di servizi esterni) vengono veicolati tramite **variabili d’ambiente** e file `.env`, mentre i file di configurazione Spring Boot (`application-*.yml`) si limitano a referenziarli. Questa strategia consente di:
+La configurazione del sistema è basata su un approccio **env-based**, in cui i parametri sensibili o dipendenti dall’ambiente (host, porte, credenziali, URL di servizi esterni) vengono veicolati tramite **variabili d’ambiente** e risorse di configurazione, mentre i file di configurazione Spring Boot (`application-*.yml`) si limitano a referenziarli. Questa strategia consente di:
 
 * separare in modo netto il **codice applicativo** dai **valori di configurazione**;
-* utilizzare la stessa immagine container in ambienti diversi (sviluppo, test, produzione) variando soltanto i file `.env` o le variabili di runtime;
+* utilizzare la stessa immagine container in ambienti diversi (sviluppo, test, produzione) variando soltanto i valori di runtime;
 * evitare l’hardcoding di credenziali e URL all’interno dei sorgenti.
 
-A livello infrastrutturale, il file `docker/docker-compose.yml` carica i file `.env` presenti in `docker/env/` e li espone come variabili d’ambiente nei container. Sul lato applicativo, i microservizi leggono tali variabili tramite le property Spring (ad esempio `${DB_HOST}`, `${OPEN_SKY_CLIENT_ID}`, ecc.).
+A livello infrastrutturale, l’esecuzione su Kubernetes utilizza risorse dedicate per la configurazione: una **ConfigMap** per i parametri non sensibili e un **Secret** per le credenziali. Tali risorse vengono poi iniettate nei Pod dei microservizi tramite `envFrom` nei rispettivi manifest di Deployment. Sul lato applicativo, i microservizi leggono le variabili tramite le property Spring (ad esempio `${DB_HOST}`, `${OPENSKY_CLIENT_ID}`, ecc.).
 
 ---
 
-### 4.2 File `.env` e variabili d’ambiente
+### 4.2 ConfigMap e Secret (Kubernetes)
 
-La gestione centralizzata delle variabili d’ambiente avviene principalmente tramite la cartella `docker/env/`. I file `.env` definiti in questa cartella vengono montati nei container al momento dell’avvio tramite Docker Compose.
+La configurazione runtime in ambiente Kubernetes è centralizzata nella cartella `k8s/config/` e viene applicata allo stack tramite Kustomize (direttamente o per mezzo dell’overlay/stack principale). L’obiettivo è garantire **coerenza**, **riutilizzabilità** e **separazione** tra dati non sensibili e credenziali.
 
-#### 4.2.1 File `.env` a livello di `docker/`
+#### 4.2.1 ConfigMap: variabili non sensibili
 
-I file `.env` principali sono:
+La ConfigMap principale è definita in **`k8s/config/01-configmap.yaml`** (nome risorsa: `dsbd-config`, namespace: `dsbd`). Contiene variabili non sensibili, tra cui:
 
-* **`docker/env/postgres.env`**: definisce i parametri di inizializzazione dell’istanza PostgreSQL;
-* **`docker/env/services.env`**: fornisce ai microservizi i parametri comuni di connessione al database, i riferimenti alle OpenSky Network API, i parametri di connessione al broker Kafka e le impostazioni per l’integrazione con il sistema di posta SMTP utilizzato dall’Alert Notifier.
+* parametri di connessione logica al database (**host**, **porta**, **username**, nomi dei database logici);
+* bootstrap servers del broker Kafka;
+* URL delle OpenSky Network API (authorization endpoint e API base);
+* parametri non sensibili del sistema SMTP (host, porta, flag di autenticazione/TLS) e mittente logico (`MAIL_FROM`).
 
-Un esempio semplificato di `postgres.env` può essere:
+Nei Deployment dei microservizi, l’iniezione della ConfigMap avviene tramite:
 
-```dotenv
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-POSTGRES_DB=postgres
-USER_DB_NAME=userdb
-DATA_DB_NAME=datadb
-```
+* `envFrom.configMapRef.name: dsbd-config`
 
-In questo file vengono configurati:
+in modo da rendere disponibili le chiavi come variabili d’ambiente, senza duplicazione per singolo servizio.
 
-* l’utente e la password amministrativi di PostgreSQL (`POSTGRES_USER`, `POSTGRES_PASSWORD`);
-* il database predefinito (`POSTGRES_DB`) utilizzato come contesto iniziale per l’esecuzione degli script di bootstrap;
-* i nomi dei due **database logici** dedicati ai microservizi (`USER_DB_NAME`, `DATA_DB_NAME`), che saranno creati dallo script di inizializzazione.
+#### 4.2.2 Secret: credenziali e dati sensibili
 
-Un esempio di `services.env` può essere:
+Le credenziali sono definite nel Secret **`k8s/config/02-secret.yaml`** (nome risorsa: `dsbd-secrets`, namespace: `dsbd`). Il Secret include tipicamente:
 
-```dotenv
-DB_HOST=postgres
-DB_PORT=5432
-DB_USERNAME=user
-DB_PASSWORD=password
-USER_DB_NAME=userdb
-DATA_DB_NAME=datadb
+* `DB_PASSWORD` (password del database);
+* `OPENSKY_CLIENT_ID` e `OPENSKY_CLIENT_SECRET` (OAuth2 *client credentials*);
+* `MAIL_USERNAME` e `MAIL_PASSWORD` (credenziali SMTP).
 
-OPEN_SKY_AUTH_BASE_URL=https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token
-OPEN_SKY_API_BASE_URL=https://opensky-network.org/api
-OPEN_SKY_CLIENT_ID=your_client_id
-OPEN_SKY_CLIENT_SECRET=your_client_secret
+Analogamente alla ConfigMap, i microservizi importano le variabili tramite:
 
-KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+* `envFrom.secretRef.name: dsbd-secrets`
 
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=your_mailtrap_username
-MAIL_PASSWORD=your_mailtrap_password
-MAIL_SMTP_AUTH=true
-MAIL_SMTP_STARTTLS_ENABLE=true
-```
+Per i componenti infrastrutturali (ad esempio PostgreSQL), il Secret può essere referenziato anche puntualmente via `valueFrom.secretKeyRef` (ad esempio `POSTGRES_PASSWORD` derivata da `DB_PASSWORD`).
 
-Queste variabili permettono ai microservizi di:
+#### 4.2.3 Gestione sicura delle credenziali (placeholder vs valori reali)
 
-* connettersi al database PostgreSQL tramite host e porta logici (`DB_HOST`, `DB_PORT`), riutilizzando gli stessi nomi per tutti i servizi che accedono all’istanza;
-* accedere ai database corretti (`USER_DB_NAME`, `DATA_DB_NAME`) pur condividendo la stessa istanza PostgreSQL;
-* ottenere le credenziali e gli endpoint necessari per interagire con le OpenSky Network API;
-* disporre dei parametri di integrazione con il broker Kafka (`KAFKA_BOOTSTRAP_SERVERS`) e con il sistema di posta SMTP (`MAIL_*`) utilizzato per l’invio delle notifiche.
+Per un utilizzo corretto e sicuro, è opportuno distinguere tra **valori di esempio** e **valori reali**:
 
-Il file `services.env` viene referenziato nel `docker-compose.yml` per i container dei microservizi, in modo che le variabili siano disponibili al runtime delle applicazioni Spring.
+* i manifest `k8s/config/02-secret.yaml` dovrebbero contenere, idealmente, **placeholder** (ad esempio `your_client_id`, `your_client_secret`) e i valori effettivi dovrebbero essere applicati in modo controllato (ad esempio tramite file non versionati, CI/CD, secret manager, o strumenti come Sealed Secrets/External Secrets);
+* in esecuzione locale e/o in contesti di sviluppo controllati, è possibile utilizzare valori reali, purché venga garantito che non vengano committati su repository remoti.
 
-#### 4.2.2 File `.env` specifici per i servizi (se presenti)
-
-Oltre ai file `.env` gestiti a livello di Docker, è possibile definire ulteriori file di configurazione esterni o variabili d’ambiente specifiche per ogni microservizio, ad esempio:
-
-* variabili dedicate a parametri di **logging** (livello di log, formati);
-* variabili per controllare l’intervallo di esecuzione dello **scheduler** (ad esempio `FLIGHT_COLLECTION_CRON` o `FLIGHT_COLLECTION_INTERVAL_SECONDS`).
-
-Nel caso in cui si decida di utilizzare file `.env` separati per i singoli servizi, è opportuno mantenere una convenzione chiara (ad esempio `user-manager.env`, `data-collector.env`) e documentarne il contenuto in modo analogo a quanto fatto per `postgres.env` e `services.env`, assicurandosi che Docker Compose o l’ambiente di esecuzione li carichino esplicitamente.
+Nel progetto è presente anche il file **`docker/env/services.env`**, che documenta lo stesso insieme di variabili in formato `.env`. Qualora si operi su entrambe le modalità (esecuzione containerizzata “classica” e deploy su Kubernetes), è essenziale mantenere **coerenti** le coppie di valori tra `docker/env/services.env` e i manifest `k8s/config/*`.
 
 ---
 
@@ -748,7 +978,7 @@ Nel caso in cui si decida di utilizzare file `.env` separati per i singoli servi
 
 La configurazione del database è incapsulata nella combinazione di:
 
-* variabili d’ambiente fornite dai file `.env`;
+* variabili d’ambiente fornite da **ConfigMap/Secret**;
 * script SQL di inizializzazione;
 * configurazioni Spring Boot nei microservizi.
 
@@ -756,7 +986,7 @@ La configurazione del database è incapsulata nella combinazione di:
 
 I parametri di connessione fondamentali sono:
 
-* **host** del database (ad esempio `postgres` nella rete Docker);
+* **host** del database (ad esempio `postgres` come nome del Service nel cluster);
 * **porta** di ascolto (tipicamente `5432`);
 * **nome utente** e **password** per l’autenticazione;
 * **nome del database logico** a cui connettersi.
@@ -785,7 +1015,7 @@ In questo modo i microservizi non hanno conoscenza diretta di host, porte o cred
 
 #### 4.3.2 Database logici: User DB e Data DB
 
-La separazione tra **User DB** e **Data DB** è realizzata attraverso due database logici distinti (`userdb` e `datadb`) all’interno della stessa istanza PostgreSQL. Lo script `docker/db/init/01-create-databases.sql` utilizza i nomi definiti in `postgres.env` per creare i due database al bootstrap del container.
+La separazione tra **User DB** e **Data DB** è realizzata attraverso due database logici distinti (`userdb` e `datadb`) all’interno della stessa istanza PostgreSQL. In ambiente Kubernetes, la creazione dei database avviene al bootstrap dell’istanza tramite la ConfigMap **`k8s/infra/postgres/01-initdb-configmap.yaml`**, montata in `/docker-entrypoint-initdb.d`.
 
 Ogni microservizio si connette esclusivamente al proprio database logico e gestisce lo schema tramite **Flyway**, con migrazioni collocate in:
 
@@ -804,10 +1034,10 @@ Le credenziali per l’accesso alle **OpenSky Network API** sono fornite tramite
 
 Gli elementi minimi necessari per l’autenticazione OAuth2 *Client Credentials* sono:
 
-* `OPEN_SKY_AUTH_BASE_URL`: URL base del server di authorization;
-* `OPEN_SKY_API_BASE_URL`: URL base delle API di volo;
-* `OPEN_SKY_CLIENT_ID`: identificativo della client application registrata presso OpenSky;
-* `OPEN_SKY_CLIENT_SECRET`: secret associato alla client application.
+* `OPENSKY_AUTH_URL`: URL del token endpoint;
+* `OPENSKY_API_URL`: URL base delle API di volo;
+* `OPENSKY_CLIENT_ID`: identificativo della client application registrata presso OpenSky;
+* `OPENSKY_CLIENT_SECRET`: secret associato alla client application.
 
 Nel `Data Collector Service`, tali variabili vengono mappate nelle property applicative, ad esempio:
 
@@ -827,10 +1057,10 @@ Il client dedicato (`OpenSkyClient`) utilizza queste proprietà per:
 
 #### 4.4.2 Gestione sicura delle credenziali (placeholder vs valori reali)
 
-All’interno del repository, i file `.env` di esempio e le proprietà applicative devono contenere **placeholder** (ad esempio `your_client_id`, `your_client_secret`) e non valori reali. Le credenziali effettive vanno:
+All’interno del repository, i file di esempio e i manifest Kubernetes dovrebbero contenere **placeholder** e non valori reali. Le credenziali effettive vanno:
 
-* inserite localmente nei file `.env` non versionati (ad esempio mantenuti come `docker/env/services.env` esclusi dal VCS, se richiesto);
-* oppure configurate tramite variabili d’ambiente del sistema o del servizio di orchestrazione.
+* inserite localmente nei file non versionati e/o applicate tramite pipeline di deploy;
+* oppure gestite tramite secret manager e meccanismi di injection controllati.
 
 È opportuno garantire che:
 
@@ -841,29 +1071,28 @@ All’interno del repository, i file `.env` di esempio e le proprietà applicati
 
 ### 4.5 Configurazione del sistema di posta (Mailtrap SMTP)
 
-L’invio delle notifiche email è gestito dal microservizio **Alert Notifier**, che si integra con un server SMTP esterno. In ambiente di sviluppo e test viene utilizzato **Mailtrap**, che fornisce una *sandbox* SMTP dedicata alla verifica delle email senza recapito verso destinatari reali. Anche in questo caso la configurazione è interamente **env-based**: le credenziali e gli endpoint del server SMTP non sono codificati nel codice sorgente, ma vengono forniti tramite variabili d’ambiente e file `.env`.
+L’invio delle notifiche email è gestito dal microservizio **Alert Notifier**, che si integra con un server SMTP esterno. In ambiente di sviluppo e test viene utilizzato **Mailtrap**, che fornisce una *sandbox* SMTP dedicata alla verifica delle email senza recapito verso destinatari reali. Anche in questo caso la configurazione è interamente **env-based**: le credenziali e gli endpoint del server SMTP non sono codificati nel codice sorgente, ma vengono forniti tramite variabili d’ambiente e risorse Kubernetes.
 
 #### 4.5.1 Variabili d’ambiente `MAIL_*` per l’Alert Notifier
 
-Il microservizio *Alert Notifier* legge i parametri necessari alla configurazione del `JavaMailSender` da un insieme di variabili d’ambiente con prefisso `MAIL_`, tipicamente definite in `docker/env/services.env` e iniettate nel container tramite Docker Compose. Le variabili principali sono:
+Il microservizio *Alert Notifier* legge i parametri necessari alla configurazione del `JavaMailSender` da un insieme di variabili d’ambiente con prefisso `MAIL_`, definite in Kubernetes tra **ConfigMap** (`k8s/config/01-configmap.yaml`) e **Secret** (`k8s/config/02-secret.yaml`) e iniettate nel Pod tramite `envFrom`. Le variabili principali sono:
 
-* `MAIL_HOST`: hostname del server SMTP (ad esempio `smtp.mailtrap.io`);
-* `MAIL_PORT`: porta di ascolto del server SMTP (tipicamente `2525` per Mailtrap);
+* `MAIL_HOST`: hostname del server SMTP;
+* `MAIL_PORT`: porta di ascolto del server SMTP (il valore dipende dalla configurazione indicata dal provider);
 * `MAIL_USERNAME`: username dell’account SMTP configurato su Mailtrap;
 * `MAIL_PASSWORD`: password associata all’account SMTP;
 * `MAIL_SMTP_AUTH`: flag booleano che abilita l’autenticazione SMTP (`true`/`false`);
-* `MAIL_SMTP_STARTTLS_ENABLE`: flag booleano che abilita l’estensione **STARTTLS** per la cifratura del canale.
+* `MAIL_SMTP_STARTTLS_ENABLE`: flag booleano che abilita l’estensione **STARTTLS** per la cifratura del canale;
+* `MAIL_FROM`: mittente logico utilizzato dall’applicazione per le notifiche.
 
-Queste variabili vengono lette dal componente di configurazione del microservizio (ad esempio una classe `MailConfig` annotata con `@Configuration`), che costruisce il `JavaMailSender` impostando host, porta, credenziali e proprietà del protocollo (`mail.transport.protocol`, `mail.smtp.auth`, `mail.smtp.starttls.enable`). In questo modo l’Alert Notifier può inviare email senza che i dettagli dell’account SMTP siano presenti nel codice.
-
-L’indirizzo email del mittente e il nome visualizzato (*display name*) sono configurati tramite proprietà applicative del microservizio (ad esempio nel file `application-docker.yml`), eventualmente mappate a loro volta su variabili d’ambiente dedicate, in modo da poter personalizzare facilmente il mittente delle notifiche.
+Queste variabili vengono lette dalla configurazione Spring (`spring.mail.*` e `app.alerts.mail.from`) e consentono di adattare il comportamento dell’SMTP senza modificare i sorgenti.
 
 #### 4.5.2 Considerazioni su mittente, autenticazione e TLS
 
 Per garantire un comportamento coerente e sicuro del sistema di notifica è opportuno:
 
 * utilizzare un **mittente dedicato** alle notifiche applicative (ad esempio `no-reply@alerts.example.com`), evitando account personali;
-* mantenere **attiva l’autenticazione SMTP**, impostando `MAIL_SMTP_AUTH=true` e conservando le credenziali in file `.env` non versionati o in secret manager esterni;
+* mantenere **attiva l’autenticazione SMTP**, impostando `MAIL_SMTP_AUTH=true` e conservando le credenziali in secret o sistemi equivalenti;
 * abilitare **STARTTLS** quando supportato dal provider (`MAIL_SMTP_STARTTLS_ENABLE=true`), così da proteggere le credenziali e il contenuto delle notifiche durante il transito;
 * utilizzare password robuste o, ove disponibili, **token di accesso** specifici per l’SMTP, evitando il riuso di credenziali generiche.
 
@@ -873,16 +1102,18 @@ Nel contesto di test con Mailtrap, questi parametri consentono di simulare fedel
 
 ### 4.6 Profili e configurazioni Spring Boot
 
-La configurazione dei microservizi è organizzata tramite i file di property Spring Boot (`application.yml` e, ove previsto, `application-docker.yml`), integrati con variabili d’ambiente fornite dall’infrastruttura (Docker e file `.env`). In assenza di profili espliciti, Spring Boot utilizza il **profilo di default**, che nel progetto è pensato per coprire i principali scenari di esecuzione, demandando ai parametri env-based la specializzazione per i singoli ambienti.
+La configurazione dei microservizi è organizzata tramite i file di property Spring Boot (`application.yml` e, ove previsto, eventuali file di profilo), integrati con variabili d’ambiente fornite dall’infrastruttura (**Kubernetes**, tramite **ConfigMap** e **Secret** applicati nei manifest). In assenza di profili espliciti, Spring Boot utilizza il **profilo di default**, che nel progetto è pensato per coprire i principali scenari di esecuzione, demandando ai parametri env-based la specializzazione per i singoli ambienti.
 
 #### 4.6.1 Uso del profilo di default e overriding tramite variabili d’ambiente
 
 Il profilo di default di Spring Boot è sufficiente per la maggior parte degli scenari supportati dal sistema. In particolare:
 
-* i parametri relativi al **datasource** (URL JDBC, utente, password) sono definiti nei file di configurazione applicativa (`application.yml` per l’esecuzione locale, `application-docker.yml` per l’esecuzione in container) in forma generica, assumendo `localhost` e la porta standard `5432` come configurazione di base per l’esecuzione locale e delegando a variabili d’ambiente la risoluzione degli host/logical name in ambiente Docker;
-* i parametri relativi ai **servizi esterni** (endpoint OpenSky, credenziali OAuth2, configurazione gRPC, integrazione con Kafka e sistema di posta) sono referenziati tramite placeholder e risolti al runtime utilizzando le variabili d’ambiente (`OPEN_SKY_AUTH_BASE_URL`, `OPEN_SKY_API_BASE_URL`, `OPEN_SKY_CLIENT_ID`, `OPEN_SKY_CLIENT_SECRET`, `KAFKA_BOOTSTRAP_SERVERS`, `MAIL_*`, ecc.).
+* i parametri relativi al **datasource** (URL JDBC, utente, password) sono definiti nei file di configurazione applicativa (`application.yml` per l’esecuzione locale, `application-docker.yml` per l’esecuzione containerizzata) in forma generica, assumendo `localhost` e la porta standard `5432` come configurazione di base per l’esecuzione locale e delegando a variabili d’ambiente la risoluzione degli host/logical name in ambiente cluster;
+* i parametri relativi ai **servizi esterni** (endpoint OpenSky, credenziali OAuth2, configurazione gRPC, integrazione con Kafka e sistema di posta) sono referenziati tramite placeholder e risolti al runtime utilizzando le variabili d’ambiente (`OPENSKY_AUTH_URL`, `OPENSKY_API_URL`, `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, `KAFKA_BOOTSTRAP_SERVERS`, `MAIL_*`, ecc.).
 
-In questo modello, i file di configurazione Spring fungono da **singola sorgente di verità** per la struttura della configurazione applicativa, mentre gli aspetti ambiente‑specifici (host, credenziali, URL esterni, porte) sono demandati alle variabili d’ambiente illustrate nelle sezioni precedenti. L’override dei parametri può avvenire sia tramite file `.env` caricati da Docker Compose, sia tramite variabili d’ambiente impostate direttamente nel sistema operativo o nel motore di orchestrazione.
+In questo modello, i file di configurazione Spring fungono da **singola sorgente di verità** per la struttura della configurazione applicativa, mentre gli aspetti ambiente‑specifici (host, credenziali, URL esterni, porte) sono demandati alle variabili d’ambiente illustrate nelle sezioni precedenti.
+
+In ambiente Kubernetes, i microservizi attivano il profilo **`docker`** tramite `SPRING_PROFILES_ACTIVE=docker` nei rispettivi manifest di Deployment, così da utilizzare le configurazioni `application-docker.yml` (datasource su `DB_HOST=postgres`, bootstrap Kafka, indirizzi gRPC interni al cluster, ecc.) con override via ConfigMap/Secret.
 
 Qualora in futuro si rendesse necessario introdurre una differenziazione più marcata tra ambienti (ad esempio **sviluppo**, **test**, **produzione**), è possibile estendere il modello attuale definendo profili Spring Boot dedicati, ad esempio:
 
@@ -898,103 +1129,113 @@ L’attivazione di tali profili può avvenire tramite:
   java -jar data-collector-service.jar --spring.profiles.active=prod
   ```
 
-Nel contesto attuale, il profilo di default combinato con la configurazione env‑based descritta nelle sezioni precedenti è sufficiente e rappresenta la modalità consigliata per build & deploy del sistema.
+#### 4.6.2 Configurazione del Circuit Breaker Resilience4j verso OpenSky
 
-#### 4.6.2 Configurazioni per l’esecuzione in ambiente Docker (`application-docker.yml`)
+Il `Data Collector Service` integra un **Circuit Breaker** (Resilience4j) per proteggere le invocazioni verso le OpenSky Network API in caso di errori ripetuti, time‑out o indisponibilità temporanea del provider esterno.
 
-Per i microservizi eseguiti in ambiente containerizzato, la configurazione specifica è concentrata nei file **`application-docker.yml`**, collocati in `src/main/resources/` all’interno di ciascun servizio. Questi file definiscono, tra le altre cose:
-
-* la configurazione del **datasource** basata sui logical name utilizzati nella rete Docker (`DB_HOST=postgres`, `DB_PORT=5432`, `USER_DB_NAME`, `DATA_DB_NAME`);
-* i parametri di integrazione con il **broker Kafka** (bootstrap servers, gruppi di consumo, configurazione dei topic);
-* gli endpoint e le credenziali dei **servizi esterni** (OpenSky, sistema di posta), mappati sui placeholder che risolvono le variabili d’ambiente;
-* eventuali parametri specifici dell’ambiente containerizzato (time‑out, pool di connessioni, configurazioni di logging).
-
-Nel caso dei microservizi che possono essere eseguiti anche localmente (*User Manager* e *Data Collector*), `application.yml` fornisce una configurazione adatta alla connessione verso un database PostgreSQL esposto su `localhost:5432`, mentre `application-docker.yml` contiene la variante pensata per l’esecuzione all’interno della rete Docker, con riferimenti all’host logico `postgres` e alle altre risorse containerizzate. Il passaggio da una configurazione all’altra avviene tramite l’ambiente di esecuzione (set di variabili d’ambiente e, se previsto, profili Spring attivati).
-
-Per i microservizi introdotti in questa release (*Alert System* e *Alert Notifier*), l’esecuzione è pensata primariamente in ambiente Docker e la configurazione principale è concentrata direttamente in `application-docker.yml`, che assume la presenza delle variabili d’ambiente settate tramite i file `env` e il `docker-compose.yml`.
-
-#### 4.6.3 Configurazione del Circuit Breaker Resilience4j verso OpenSky
-
-Per aumentare la **resilienza** delle chiamate alle OpenSky Network API, il `Data Collector Service` utilizza un **Circuit Breaker** basato su *Resilience4j*. La configurazione è definita nel file di proprietà applicativo (tipicamente `application.yml` e/o `application-docker.yml`), tramite una sezione dedicata, ad esempio:
+La configurazione è definita nella sezione `resilience4j.circuitbreaker` del file `data-collector-service/src/main/resources/application.yml`. Un estratto esemplificativo è:
 
 ```yaml
 resilience4j:
   circuitbreaker:
     instances:
-      openSkyClient:
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 30s
-        permitted-number-of-calls-in-half-open-state: 5
-        automatic-transition-from-open-to-half-open-enabled: true
+      opensky:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
 ```
 
-Il client che invoca le OpenSky Network API viene decorato con il `CircuitBreaker` identificato dal nome `openSkyClient`. I parametri configurati definiscono:
+Il client che invoca le OpenSky Network API viene decorato con il `CircuitBreaker` identificato dal nome `opensky`. I parametri configurati definiscono:
 
-* la dimensione della **finestra di osservazione** (`sliding-window-size`) e il numero minimo di chiamate su cui calcolare le statistiche (`minimum-number-of-calls`);
-* la **soglia di failure** oltre la quale il circuito passa allo stato *open* (`failure-rate-threshold`);
-* la durata di permanenza nello stato *open* prima del tentativo di ritorno allo stato *half-open* (`wait-duration-in-open-state`);
-* il numero di chiamate consentite nello stato *half-open* (`permitted-number-of-calls-in-half-open-state`) e l’abilitazione della transizione automatica da *open* a *half-open*.
+* la dimensione della **finestra di osservazione** (`slidingWindowSize`);
+* la **soglia di failure** oltre la quale il circuito passa allo stato *open* (`failureRateThreshold`);
+* la durata di permanenza nello stato *open* prima del tentativo di ritorno allo stato *half-open* (`waitDurationInOpenState`);
+* il numero di chiamate consentite nello stato *half-open* (`permittedNumberOfCallsInHalfOpenState`) e l’abilitazione della transizione automatica da *open* a *half-open*.
 
 In presenza di errori ripetuti o di indisponibilità temporanea del servizio OpenSky, il Circuit Breaker evita di saturare l’endpoint esterno con richieste fallimentari, proteggendo il microservizio chiamante e contribuendo alla stabilità complessiva del sistema.
 
+---
+
+### 4.7 Configurazione del monitoring (Actuator/Micrometer/Prometheus)
+
+Il sistema integra un livello di **osservabilità white-box** basato su Spring Boot Actuator e Micrometer, esportando metriche in formato Prometheus. In ambiente Kubernetes, un’istanza Prometheus dedicata effettua lo scraping degli endpoint dei microservizi e rende disponibili le metriche per analisi e troubleshooting.
+
+#### 4.7.1 Esposizione endpoint `/actuator/prometheus`
+
+Per i microservizi monitorati, l’esposizione delle metriche avviene tramite:
+
+* abilitazione di Actuator nel servizio;
+* esposizione degli endpoint `health`, `info` e `prometheus` (configurazione in `application.yml` e/o override via variabili d’ambiente nei manifest Kubernetes);
+* endpoint HTTP `/actuator/prometheus`, utilizzato da Prometheus come `metrics_path`.
+
+Nei Deployment Kubernetes, per robustezza vengono esplicitate le variabili di abilitazione delle metriche Prometheus (ad esempio `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,prometheus` e flag di export Prometheus) e vengono configurate probe di health su `/actuator/health`.
+
+#### 4.7.2 Convenzioni di naming e labeling delle metriche
+
+Le metriche esportate includono sia metriche **tecniche** (JVM, HTTP server, thread, pool, ecc.) sia metriche **applicative** (strumentazione specifica dei componenti chiave). Per rendere le serie temporali confrontabili e filtrabili in modo affidabile, sono adottate convenzioni di labeling coerenti:
+
+* `service`: nome logico del microservizio, valorizzato tramite `SERVICE_NAME` (con fallback su `${spring.application.name}`);
+* `node`: nome del nodo Kubernetes su cui il Pod è schedulato, valorizzato tramite `NODE_NAME` (downward API: `spec.nodeName`).
+
+Questi tag sono definiti in `management.metrics.tags.*` e permettono di correlare le metriche tra servizi e nodi, facilitando analisi comparative e diagnosi di colli di bottiglia o anomalie di runtime.
+
 ## 5. Build Instructions
 
-### 5.1 Build tramite Docker (modalità raccomandata)
+### 5.1 Build immagini Docker (modalità raccomandata)
 
-La modalità di build raccomandata prevede l’utilizzo di **Docker** e **Docker Compose** per costruire le immagini dei microservizi e del database ed eseguire l’intero sistema in ambiente containerizzato.
+La modalità di build raccomandata prevede l’utilizzo di **Docker** per costruire le immagini dei microservizi applicativi. Le immagini risultanti vengono poi utilizzate come artefatti di deploy in ambiente containerizzato (es. cluster locale *kind*).
 
 #### 5.1.1 Posizionamento nella cartella corretta
 
-Dopo aver clonato la repository, è necessario posizionarsi nella cartella `docker/`, che contiene il file `docker-compose.yml` e i file `.env` utilizzati per la configurazione:
+Dopo aver clonato la repository, è necessario posizionarsi nella **root** del progetto (la directory che contiene le cartelle dei microservizi e la cartella `scripts/`):
 
 ```bash
-cd docker
+cd DSBD_Project
 ```
 
-Tutti i comandi di build ed esecuzione tramite Docker Compose indicati in questo documento presuppongono che la directory corrente sia `docker/`.
+Tutti i comandi di build indicati in questo documento presuppongono che la directory corrente sia la root del repository.
 
-#### 5.1.2 Comando per buildare le immagini con Docker Compose
+#### 5.1.2 Comando per buildare le immagini Docker
 
-Per costruire le immagini Docker dei microservizi applicativi a partire dai rispettivi `Dockerfile` è possibile utilizzare **Docker Compose** in uno dei seguenti modi.
+Per costruire le immagini Docker dei microservizi applicativi a partire dai rispettivi `Dockerfile`, è possibile utilizzare:
 
-Build esplicita delle immagini, senza avviare i container:
+* gli **script di supporto** versionati nella cartella `scripts/` (modalità consigliata);
+* in alternativa, i comandi `docker build` eseguiti manualmente.
+
+Gli script producono immagini con naming coerente con i manifest Kubernetes:
+
+* `dsbd/user-manager-service:<tag>`
+* `dsbd/data-collector-service:<tag>`
+* `dsbd/alert-system-service:<tag>`
+* `dsbd/alert-notifier-service:<tag>`
+
+dove `<tag>` è un identificatore di versione/ambiente (di default `dev`).
+
+**Linux/macOS (bash):**
 
 ```bash
-docker compose build
+./scripts/build-images.sh dev
 ```
 
-Questo comando:
+**Windows (PowerShell):**
 
-* analizza il file `docker-compose.yml`;
-* esegue la build delle immagini per i servizi che la richiedono (i quattro microservizi applicativi: `user-manager-service`, `data-collector-service`, `alert-system-service`, `alert-notifier-service`);
-* effettua il pull delle immagini infrastrutturali (ad esempio **PostgreSQL**, **Kafka**, **Zookeeper**, **Kafka UI** e **API Gateway** basato su NGINX), se non già presenti in locale.
+```powershell
+.\scripts\build-images.ps1 -Tag dev
+```
 
-In alternativa, è possibile combinare build e avvio dei servizi utilizzando l’opzione `--build`:
+In alternativa, è possibile buildare manualmente le immagini:
 
 ```bash
-docker compose up --build
+docker build -t dsbd/user-manager-service:dev ./user-manager-service
+docker build -t dsbd/data-collector-service:dev ./data-collector-service
+docker build -t dsbd/alert-system-service:dev ./alert-system-service
+docker build -t dsbd/alert-notifier-service:dev ./alert-notifier-service
 ```
 
-In questo caso Docker Compose:
-
-* ricostruisce le immagini se il contesto di build è cambiato (modifiche al codice sorgente, al `pom.xml` o al `Dockerfile`);
-* avvia i container nella foreground, mostrando i log in tempo reale.
-
-Per eseguire il sistema in **background**, mantenendo comunque la fase di build automatica, è possibile usare:
-
-```bash
-docker compose up --build -d
-```
-
-Dopo la prima esecuzione, se il codice non è cambiato, è sufficiente utilizzare:
-
-```bash
-docker compose up -d
-```
-
-per riavviare i servizi senza ricostruire le immagini.
+**Nota sul tag delle immagini.** I manifest Kubernetes referenziano esplicitamente le immagini (ad esempio `dsbd/user-manager-service:dev`). Se si utilizza un tag diverso da `dev`, è necessario aggiornare coerentemente i campi `image:` nei file di deployment.
 
 #### 5.1.3 Descrizione dei Dockerfile dei microservizi (multi-stage build)
 
@@ -1013,7 +1254,7 @@ Lo schema tipico di un Dockerfile multi-stage per un microservizio Spring Boot �
 
 2. **Stage runtime**:
 
-   * utilizza una immagine base JRE o JDK ridotta (ad esempio una variante *slim* o *distroless* compatibile);
+   * utilizza una immagine base JRE o JDK ridotta (ad esempio una variante *slim* o *alpine* compatibile);
    * copia dal primo stage il jar già costruito in una directory di destinazione (ad esempio `/app/app.jar`);
    * definisce il comando di avvio, tipicamente:
 
@@ -1021,36 +1262,13 @@ Lo schema tipico di un Dockerfile multi-stage per un microservizio Spring Boot �
      ENTRYPOINT ["java", "-jar", "/app/app.jar"]
      ```
 
-In `docker-compose.yml`, ogni servizio applicativo referenzia il proprio `Dockerfile` indicando il contesto di build e il valore di `Dockerfile`, ad esempio:
+La build dell’immagine viene eseguita indicando come *build context* la cartella del singolo servizio, ad esempio:
 
-```yaml
-services:
-  user-manager-service:
-    build:
-      context: ./user-manager-service
-      dockerfile: Dockerfile
-    # .
-
-  data-collector-service:
-    build:
-      context: ./data-collector-service
-      dockerfile: Dockerfile
-    # .
-
-  alert-system-service:
-    build:
-      context: ./alert-system-service
-      dockerfile: Dockerfile
-    # .
-
-  alert-notifier-service:
-    build:
-      context: ./alert-notifier-service
-      dockerfile: Dockerfile
-    # .
+```bash
+docker build -t dsbd/user-manager-service:dev ./user-manager-service
 ```
 
-Gli altri servizi definiti nello stack (database, broker Kafka, Zookeeper, Kafka UI, API Gateway) utilizzano immagini già pronte reperite da registry pubblici e non richiedono un `Dockerfile` specifico all’interno del repository.
+Gli altri componenti dello stack (database, broker Kafka, Zookeeper, Kafka UI, API Gateway, Prometheus) utilizzano immagini già pronte reperite da registry pubblici e non richiedono un `Dockerfile` specifico all’interno del repository.
 
 Questa configurazione permette di mantenere i microservizi indipendenti, garantendo al contempo una pipeline di build coerente e ripetibile.
 
@@ -1058,7 +1276,7 @@ Questa configurazione permette di mantenere i microservizi indipendenti, garante
 
 ### 5.2 Build locale senza Docker (opzionale)
 
-È possibile costruire i microservizi anche in modalità **non containerizzata**, utilizzando direttamente Maven. Questa modalità è utile durante lo sviluppo, per l’esecuzione da IDE o per scenari di debug approfondito, mantenendo comunque una pipeline di build allineata a quella utilizzata negli image Docker. In pratica, l’esecuzione locale è pensata soprattutto per i servizi **User Manager** e **Data Collector**; per **Alert System** e **Alert Notifier** la build locale produce comunque gli artefatti jar necessari, ma l’esecuzione runtime viene normalmente effettuata in container, poiché dipende dalla disponibilità di un broker **Kafka** e di un server **SMTP** (ad esempio Mailtrap) correttamente configurati.
+È possibile costruire i microservizi anche in modalità **non containerizzata**, utilizzando direttamente Maven. Questa modalità è utile durante lo sviluppo, per l’esecuzione da IDE o per scenari di debug approfondito, mantenendo comunque una pipeline di build allineata a quella utilizzata negli image Docker. In pratica, l’esecuzione locale è pensata soprattutto per i servizi **User Manager** e **Data Collector**; per **Alert System** e **Alert Notifier** la build locale produce comunque gli artefatti jar necessari, ma l’esecuzione runtime viene normalmente effettuata in ambiente containerizzato, poiché dipende dalla disponibilità di un broker **Kafka** e di un server **SMTP** (ad esempio Mailtrap) correttamente configurati.
 
 #### 5.2.1 Build dello User Manager Service con Maven
 
@@ -1125,7 +1343,7 @@ Il comando esegue una sequenza di operazioni analoga a quella descritta per gli 
   target/alert-system-service-<version>.jar
   ```
 
-Per questo microservizio la configurazione principale è definita nel file `application-docker.yml`, pensato per l’esecuzione in ambiente containerizzato, dove le variabili d’ambiente vengono fornite da Docker Compose. Il jar prodotto viene tipicamente utilizzato come artefatto di riferimento negli **stage runtime** dei Dockerfile multi-stage. Un’eventuale esecuzione stand‑alone richiede la predisposizione manuale di un ambiente con **PostgreSQL** e **Kafka** raggiungibili e una configurazione esplicita delle proprietà Spring Boot (ad esempio tramite variabili d’ambiente o file di configurazione esterni).
+Per questo microservizio la configurazione principale è definita nel file `application-docker.yml`, pensato per l’esecuzione in ambiente containerizzato, dove le variabili d’ambiente vengono fornite dalla piattaforma di orchestrazione (ad esempio tramite ConfigMap/Secret). Il jar prodotto viene tipicamente utilizzato come artefatto di riferimento negli **stage runtime** dei Dockerfile multi-stage. Un’eventuale esecuzione stand‑alone richiede la predisposizione manuale di un ambiente con **PostgreSQL** e **Kafka** raggiungibili e una configurazione esplicita delle proprietà Spring Boot (ad esempio tramite variabili d’ambiente o file di configurazione esterni).
 
 #### 5.2.4 Build dell’Alert Notifier Service con Maven
 
@@ -1149,285 +1367,412 @@ Maven:
 
 Anche per questo microservizio la configurazione runtime è principalmente descritta in `application-docker.yml` e si appoggia alle variabili d’ambiente `MAIL_*` e ai parametri di connessione a Kafka forniti in fase di esecuzione containerizzata. Il jar generato viene utilizzato come base per l’immagine Docker costruita tramite multi-stage build; l’esecuzione diretta via `java -jar` è possibile ma presuppone la disponibilità di un server SMTP configurato (ad esempio **Mailtrap**) e di un broker **Kafka** raggiungibile, oltre alla corretta impostazione delle variabili d’ambiente.
 
-#### 5.2.5 Differenze rispetto alla modalità Docker-based
+#### 5.2.5 Differenze rispetto alla modalità container-based
 
 La build locale tramite Maven consente di ottenere rapidamente gli artefatti jar dei singoli microservizi ed è particolarmente adatta per attività di sviluppo e debug puntuale, soprattutto per **User Manager** e **Data Collector**, che possono essere eseguiti anche al di fuori dell’ambiente containerizzato, a patto di predisporre un’istanza PostgreSQL accessibile.
 
-La modalità **Docker-based** estende questo modello includendo nel ciclo di build anche l’ambiente infrastrutturale: il database PostgreSQL, il broker **Kafka**, **Zookeeper**, la **Kafka UI** e l’**API Gateway** NGINX vengono orchestrati insieme ai microservizi applicativi, con le rispettive variabili d’ambiente e le dipendenze di rete gestite in modo centralizzato da Docker Compose. In questo scenario, le immagini costruite a partire dai Dockerfile multi-stage incapsulano sia gli artefatti jar sia le configurazioni necessarie per l’esecuzione, riducendo il rischio di discrepanze tra ambienti diversi e semplificando la riproduzione dello stesso setup su macchine differenti.
+La modalità **container-based** estende questo modello includendo nel ciclo di build anche la produzione delle immagini dei microservizi e l’esecuzione dell’ambiente infrastrutturale tramite orchestrazione: database PostgreSQL, broker **Kafka**, **Zookeeper**, **Kafka UI**, **Prometheus** e **API Gateway** vengono esposti come risorse di piattaforma insieme ai microservizi applicativi, con le rispettive variabili d’ambiente e le dipendenze di rete gestite in modo centralizzato (ad esempio tramite manifest Kubernetes). In questo scenario, le immagini costruite a partire dai Dockerfile multi-stage incapsulano sia gli artefatti jar sia le configurazioni necessarie per l’esecuzione, riducendo il rischio di discrepanze tra ambienti diversi e semplificando la riproduzione dello stesso setup su macchine differenti.
 
-Dal punto di vista operativo, la build locale offre maggiore flessibilità in fase di sviluppo, mentre la build ed esecuzione Docker-based rappresenta la modalità di riferimento per l’esecuzione completa del sistema di flight monitoring e per la validazione end-to-end del flusso di raccolta dati, valutazione delle soglie e invio delle notifiche di alert.
+Dal punto di vista operativo, la build locale offre maggiore flessibilità in fase di sviluppo, mentre la build ed esecuzione container-based rappresenta la modalità di riferimento per l’esecuzione completa del sistema di flight monitoring e per la validazione end-to-end del flusso di raccolta dati, valutazione delle soglie e invio delle notifiche di alert.
 
-## 6. Deploy & Run with Docker Compose
+---
 
-### 6.1 Prima esecuzione del sistema
+### 5.3 Caricamento immagini nel cluster kind
 
-La prima esecuzione in modalità completamente containerizzata richiede la corretta preparazione dei file di configurazione **env-based** e l’avvio coordinato di database, componenti infrastrutturali e microservizi applicativi.
+Un cluster **kind** non effettua il pull delle immagini locali dalla macchina host: per rendere disponibili ai nodi del cluster le immagini appena buildate, è necessario **caricarle esplicitamente**.
 
-#### 6.1.1 Preparazione dei file `.env`
+Prima di procedere con il caricamento, assicurarsi che il cluster **kind** sia già stato creato ed esista (vedi sezione 6.1.1), poiché il comando di load richiede un cluster attivo e correttamente indirizzabile tramite il relativo *cluster name*.
 
-Prima di avviare lo stack applicativo è necessario verificare che i file di configurazione **env-based** siano presenti e correttamente valorizzati nella cartella `docker/env/`.
+Per uniformità con i manifest, si assume come cluster name predefinito `dsbd-local` e come tag predefinito `dev`.
 
-1. Posizionarsi nella cartella `docker/` della repository:
+#### 5.3.1 Verifica immagini disponibili localmente
+
+Dopo la build, è possibile verificare la presenza delle immagini nel *local Docker daemon*:
+
+```bash
+docker images | grep "^dsbd/" || true
+```
+
+In alternativa, si può interrogare una singola immagine:
+
+```bash
+docker image inspect dsbd/user-manager-service:dev > /dev/null
+```
+
+#### 5.3.2 Comando `kind load docker-image`
+
+Il caricamento nel cluster può essere eseguito tramite script:
+
+**Linux/macOS (bash):**
+
+```bash
+./scripts/kind/load-images.sh dev dsbd-local
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\scripts\kind\load-images.ps1 -Tag dev -ClusterName dsbd-local
+```
+
+In alternativa, è possibile utilizzare direttamente il comando `kind load docker-image` per ciascuna immagine:
+
+```bash
+kind load docker-image dsbd/user-manager-service:dev --name dsbd-local
+kind load docker-image dsbd/data-collector-service:dev --name dsbd-local
+kind load docker-image dsbd/alert-system-service:dev --name dsbd-local
+kind load docker-image dsbd/alert-notifier-service:dev --name dsbd-local
+```
+
+#### 5.3.3 Verifica del caricamento nel cluster
+
+Il controllo più immediato consiste nel verificare che i Pod, una volta creati, non entrino in stato `ImagePullBackOff` e riescano a passare in `Running`.
+
+Se si desidera un riscontro diretto lato nodo kind, è possibile elencare le immagini presenti nel container del control plane (nome nodo dipendente dal cluster name):
+
+```bash
+docker exec -it dsbd-local-control-plane crictl images | grep "dsbd/" || true
+```
+
+Se le immagini `dsbd/*:<tag>` risultano presenti, il caricamento è stato completato correttamente.
+
+## 6. Deploy & Run on Kubernetes (kind)
+
+### 6.1 Prima esecuzione dello stack completo
+
+L’esecuzione in ambiente Kubernetes locale utilizza **kind** (*Kubernetes IN Docker*) come cluster di sviluppo. Il deploy avviene tramite manifest Kubernetes versionati nella cartella `k8s/`, organizzati mediante **Kustomize**.
+
+Per poter eseguire correttamente lo stack è necessario che:
+
+* il cluster kind sia stato creato e il namespace `dsbd` sia presente;
+* le immagini Docker dei microservizi siano state buildate e caricate nel cluster kind;
+* i file di configurazione Kubernetes (**ConfigMap** e **Secret**) siano valorizzati con credenziali e parametri coerenti.
+
+#### 6.1.1 Creazione del cluster kind
+
+Il cluster può essere creato in due modalità equivalenti.
+
+Una volta completata la creazione del cluster, se le immagini Docker dei microservizi sono state buildate localmente, è necessario renderle disponibili al runtime di *kind* caricandole nel cluster come descritto nella sezione 5.3 (in assenza di questo step i Pod possono andare in `ErrImagePull` / `ImagePullBackOff`).
+
+**Opzione A — Script di supporto (consigliata)**
+
+Gli script in `scripts/kind/` creano il cluster a partire dalla configurazione versionata in `k8s/kind/kind-cluster.yaml` e applicano automaticamente il namespace `dsbd`.
+
+**Linux/macOS (bash):**
+
+```bash
+./scripts/kind/create-cluster.sh dsbd-local
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\scripts\kind\create-cluster.ps1 -ClusterName dsbd-local
+```
+
+**Opzione B — Comandi kind/kubectl**
+
+```bash
+kind create cluster --name dsbd-local --config k8s/kind/kind-cluster.yaml
+kubectl apply -f k8s/00-namespace.yaml
+```
+
+Dopo la creazione è opportuno verificare il *context* corrente e l’accesso al cluster:
+
+```bash
+kubectl config current-context
+kubectl get nodes
+```
+
+Il context atteso (cluster `dsbd-local`) è tipicamente `kind-dsbd-local`.
+
+#### 6.1.2 Preparazione ConfigMap e Secret
+
+La configurazione runtime dello stack è fornita ai Pod tramite:
+
+* `k8s/config/01-configmap.yaml` (**ConfigMap**) per variabili non sensibili;
+* `k8s/config/02-secret.yaml` (**Secret**) per credenziali e dati sensibili.
+
+Entrambe le risorse sono dichiarate nel namespace `dsbd` e vengono applicate automaticamente durante il deploy tramite Kustomize.
+
+1. Aprire `k8s/config/01-configmap.yaml` e verificare i parametri applicativi principali:
+
+   * **Database**: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `USER_DB_NAME`, `DATA_DB_NAME`.
+   * **Kafka**: `KAFKA_BOOTSTRAP_SERVERS`.
+   * **OpenSky**: `OPENSKY_AUTH_URL`, `OPENSKY_API_URL`.
+   * **Mail**: `MAIL_HOST`, `MAIL_PORT`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS_ENABLE`, `MAIL_FROM`.
+
+2. Aprire `k8s/config/02-secret.yaml` e sostituire i valori presenti con quelli del proprio ambiente:
+
+   * **Database**: `DB_PASSWORD`.
+   * **OpenSky OAuth2**: `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`.
+   * **Mailtrap SMTP**: `MAIL_USERNAME`, `MAIL_PASSWORD`.
+
+3. Verificare che i manifest dei microservizi referenzino correttamente ConfigMap e Secret.
+
+   Nel progetto corrente l’iniezione delle variabili d’ambiente avviene nei deployment Kubernetes dei servizi applicativi (cartelle `k8s/apps/*/`), tramite riferimenti a `dsbd-config` e `dsbd-secrets`.
+
+4. In caso di modifiche successive a ConfigMap/Secret con stack già in esecuzione, applicare nuovamente i manifest:
 
    ```bash
-   cd docker
+   kubectl apply -k k8s
    ```
 
-2. Verificare la presenza dei file richiesti:
+   e, se necessario, forzare un riavvio dei Pod per rendere effettive le nuove variabili:
 
    ```bash
-   ls env/
+   kubectl -n dsbd rollout restart deploy/user-manager-service
+   kubectl -n dsbd rollout restart deploy/data-collector-service
+   kubectl -n dsbd rollout restart deploy/alert-system-service
+   kubectl -n dsbd rollout restart deploy/alert-notifier-service
+   kubectl -n dsbd rollout restart deploy/api-gateway
    ```
 
-   Devono essere presenti almeno:
+#### 6.1.3 Deploy tramite Kustomize (`kubectl apply -k`)
 
-   * `postgres.env` per la configurazione dell’istanza PostgreSQL;
-   * `services.env` per la configurazione dei microservizi e dei componenti infrastrutturali.
+Il deploy dello stack completo avviene applicando il *kustomization* root `k8s/kustomization.yaml`, che include:
 
-3. Aprire `env/postgres.env` e impostare, se necessario, i valori desiderati per:
+* `k8s/stack/` (microservizi + infrastruttura applicativa e di messaging);
+* `k8s/observability/prometheus/` (monitoring).
 
-   * `POSTGRES_USER` e `POSTGRES_PASSWORD`;
-   * `POSTGRES_DB` (database di bootstrap);
-   * `USER_DB_NAME` e `DATA_DB_NAME` (database logici dei due domini).
-
-4. Aprire `env/services.env` e impostare:
-
-   * i parametri di connessione al database (`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `USER_DB_NAME`, `DATA_DB_NAME`);
-   * gli endpoint e le credenziali per l’integrazione con OpenSky (`OPEN_SKY_AUTH_BASE_URL`, `OPEN_SKY_API_BASE_URL`, `OPEN_SKY_CLIENT_ID`, `OPEN_SKY_CLIENT_SECRET`, `OPEN_SKY_SCOPE`);
-   * i parametri di configurazione del cluster Kafka utilizzato per la propagazione degli eventi (`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_SECURITY_PROTOCOL`, `KAFKA_SASL_MECHANISM`, `KAFKA_SASL_JAAS_CONFIG`, `KAFKA_TOPIC_TO_ALERT_SYSTEM`, `KAFKA_TOPIC_TO_NOTIFIER`);
-   * i parametri per il server SMTP su cui si appoggia l’*Alert Notifier* (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS_ENABLE`, `MAIL_FROM`, `MAIL_FROM_NAME`);
-   * l’eventuale profilo Spring attivo (`SPRING_PROFILES_ACTIVE`), tipicamente impostato a `docker` per l’esecuzione in container.
-
-È consigliabile utilizzare valori di default significativi per l’ambiente di sviluppo e sostituire solo i placeholder sensibili (ad esempio le credenziali di accesso, le chiavi OpenSky, le credenziali Kafka e SMTP) prima del primo avvio.
-
-#### 6.1.2 Avvio dei servizi (`docker compose up -d` / `docker compose up --build`)
-
-Una volta preparati i file `.env`, è possibile avviare l’intero sistema tramite **Docker Compose**.
-
-Per eseguire una prima build delle immagini e avviare i container in foreground, con log aggregati:
+Dalla root della repository:
 
 ```bash
-docker compose up --build
+kubectl apply -k k8s
 ```
 
-Questo comando:
-
-* costruisce o aggiorna le immagini dei microservizi sulla base dei rispettivi `Dockerfile`;
-* scarica le immagini dei servizi infrastrutturali (PostgreSQL, Kafka, ZooKeeper, Kafka UI, NGINX API Gateway) se non sono già presenti in locale;
-* avvia i servizi definiti nel `docker-compose.yml` (database, broker di messaggistica, interfacce di supporto e microservizi applicativi).
-
-Per avviare il sistema in **background**, lasciando i container attivi ma senza mantenere il terminale bloccato, è possibile usare:
+In alternativa, se si intende applicare **solo** lo stack applicativo (senza Prometheus), è possibile applicare direttamente:
 
 ```bash
-docker compose up --build -d
+kubectl apply -k k8s/stack
 ```
 
-Dopo la prima esecuzione, se non sono intervenute modifiche al codice o ai `Dockerfile`, è sufficiente:
+Durante la prima esecuzione alcuni Pod potrebbero rimanere temporaneamente in stato `Init` o `ContainerCreating` a causa delle dipendenze tra componenti (ad esempio inizializzazione di PostgreSQL e disponibilità del broker Kafka).
+
+#### 6.1.4 Verifica che i Pod siano in esecuzione
+
+Per verificare lo stato del deploy nel namespace `dsbd`:
 
 ```bash
-docker compose up -d
+kubectl -n dsbd get pods
+kubectl -n dsbd get svc
 ```
 
-per riavviare i servizi utilizzando le immagini già costruite.
-
-Durante il primo avvio è normale che il servizio PostgreSQL impieghi alcuni secondi per completare l’inizializzazione, compresa l’esecuzione degli script SQL in `db/init/` e la preparazione dei database logici. I microservizi e i componenti di integrazione (Kafka, Alert System, Alert Notifier) si connetteranno progressivamente alle rispettive dipendenze una volta che queste risulteranno operative.
-
-#### 6.1.3 Verifica che i container siano in esecuzione
-
-Dopo l’avvio, è opportuno verificare che tutti i servizi previsti siano effettivamente in esecuzione.
-
-Per elencare i container attivi associati allo stack:
+Per osservare in tempo reale la stabilizzazione dei Pod:
 
 ```bash
-docker compose ps
+kubectl -n dsbd get pods -w
 ```
 
-L’output deve riportare, con stato `running` o `healthy`, almeno:
+Nel caso di Pod non pronti (`READY 0/1`) o in errore (`CrashLoopBackOff`, `ImagePullBackOff`), è opportuno:
 
-* il container dell’istanza PostgreSQL (ad esempio `postgres` o nome equivalente configurato nel `docker-compose.yml`);
-* i container dei microservizi applicativi: *User Manager Service* (`user-manager-service`), *Data Collector Service* (`data-collector-service`), *Alert System* (`alert-system-service`), *Alert Notifier* (`alert-notifier-service`);
-* i container dei componenti infrastrutturali di messaggistica: `zookeeper`, `kafka`, `kafka-ui`;
-* il container dell’*API Gateway* (`api-gateway`) basato su NGINX.
-
-Per esaminare rapidamente i log complessivi:
-
-```bash
-docker compose logs
-```
-
-o, per seguire i log in tempo reale:
-
-```bash
-docker compose logs -f
-```
-
-È utile verificare nei log dei microservizi e dei servizi infrastrutturali che:
-
-* la connessione al database venga stabilita correttamente;
-* le migrazioni Flyway siano applicate senza errori;
-* i client Kafka risultino connessi e sottoscritti ai topic configurati (`to-alert-system`, `to-notifier`);
-* il client SMTP dell’*Alert Notifier* riesca a collegarsi al server configurato senza errori di autenticazione o di trasporto;
-* gli endpoint REST e gRPC risultino esposti sulle porte attese (come configurate nel `docker-compose.yml` e nei file di configurazione Spring).
+* controllare l’immagine referenziata nel deployment e la disponibilità nel cluster kind;
+* controllare che `ConfigMap` e `Secret` siano presenti e contengano i valori attesi;
+* analizzare eventi e log (vedi sezione 6.3).
 
 ---
 
 ### 6.2 Arresto del sistema
 
-La terminazione controllata dello stack containerizzato consente di liberare le risorse dell’host mantenendo, se desiderato, la persistenza dei dati applicativi.
+La terminazione controllata dello stack su Kubernetes consente di liberare le risorse del cluster mantenendo, se desiderato, la persistenza dei dati applicativi.
 
-#### 6.2.1 Comando di stop (`docker compose down`)
+#### 6.2.1 Eliminazione delle risorse Kubernetes (`kubectl delete -k`)
 
-Per arrestare tutti i servizi e rilasciare le risorse allocate è possibile utilizzare, dalla cartella `docker/`:
-
-```bash
-docker compose down
-```
-
-Il comando interrompe i container associati allo stack e rimuove le relative definizioni di rete, mantenendo però intatti i volumi di persistenza (ad esempio quelli associati a PostgreSQL), così che i dati restino disponibili ai successivi riavvii.
-
-#### 6.2.2 Rimozione volumi/persistenza (se necessario)
-
-Qualora si desideri **ripartire da zero**, eliminando i dati persistenti (ad esempio per effettuare test di bootstrap o verificare gli script di inizializzazione), è possibile utilizzare:
+Per rimuovere tutte le risorse applicate tramite Kustomize:
 
 ```bash
-docker compose down -v
+kubectl delete -k k8s
 ```
 
-L’opzione `-v` forza la rimozione dei volumi associati ai servizi definiti nel `docker-compose.yml` (tipicamente i volumi di PostgreSQL). Dopo questo comando, un successivo `docker compose up --build` ricreerà database e schemi a partire dagli script di inizializzazione.
+Se il namespace `dsbd` è stato creato separatamente e si desidera rimuoverlo esplicitamente:
+
+```bash
+kubectl delete namespace dsbd
+```
+
+#### 6.2.2 Eliminazione del cluster kind
+
+Per eliminare il cluster kind:
+
+**Opzione A — Script di supporto**
+
+**Linux/macOS (bash):**
+
+```bash
+./scripts/kind/delete-cluster.sh dsbd-local
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\scripts\kind\delete-cluster.ps1 -ClusterName dsbd-local
+```
+
+**Opzione B — Comando kind**
+
+```bash
+kind delete cluster --name dsbd-local
+```
 
 ---
 
-### 6.3 Comandi Docker utili
+### 6.3 Comandi Kubernetes utili
 
-Oltre alle operazioni standard di avvio e arresto dello stack, alcuni comandi Docker risultano particolarmente utili per attività di diagnosi e manutenzione puntuale dei singoli servizi.
+Oltre alle operazioni standard di avvio e arresto dello stack, alcuni comandi **kubectl** risultano particolarmente utili per attività di diagnosi e manutenzione puntuale dei singoli servizi.
 
-#### 6.3.1 Visualizzazione log di un singolo servizio
+#### 6.3.1 Visualizzazione risorse (`kubectl get`) e stato
 
-Per concentrare l’analisi su un singolo container è possibile utilizzare `docker compose logs` specificando il nome del servizio. Ad esempio, per il *User Manager Service*:
-
-```bash
-docker compose logs user-manager-service
-```
-
-Per il *Data Collector Service*:
+Comandi di uso frequente per ottenere una vista sintetica dello stack:
 
 ```bash
-docker compose logs data-collector-service
+kubectl -n dsbd get all
+kubectl -n dsbd get pods -o wide
+kubectl -n dsbd get deployments
+kubectl -n dsbd get configmap,secret
+kubectl -n dsbd get pvc
 ```
 
-Per l’*Alert System*:
+Per controllare lo stato del cluster kind:
 
 ```bash
-docker compose logs alert-system-service
+kubectl get nodes
+kubectl cluster-info
 ```
 
-Per l’*Alert Notifier*:
+#### 6.3.2 Accesso ai log di un Pod (`kubectl logs`)
+
+Per consultare i log di un Pod (singolo container):
 
 ```bash
-docker compose logs alert-notifier-service
+kubectl -n dsbd logs <pod-name>
 ```
 
-È possibile aggiungere l’opzione `-f` per seguire i log in streaming:
+Per seguire i log in streaming:
 
 ```bash
-docker compose logs -f alert-notifier-service
+kubectl -n dsbd logs -f <pod-name>
 ```
 
-In questo modo è possibile osservare in tempo reale la produzione degli eventi Kafka e l’invio delle notifiche email.
-
-#### 6.3.2 Accesso alla shell di un container
-
-Per effettuare verifiche di dettaglio all’interno di un container (ad esempio sul database o sugli strumenti di sistema disponibili nell’immagine) si può utilizzare `docker compose exec`. Per PostgreSQL:
+Se un Pod contiene più container (ad esempio initContainer + container applicativo), è possibile specificare il container:
 
 ```bash
-docker compose exec postgres bash
+kubectl -n dsbd logs <pod-name> -c <container-name>
 ```
 
-All’interno della shell del container PostgreSQL è ad esempio possibile utilizzare il client `psql` per ispezionare i database, le tabelle o gli schemi creati dalle migrazioni applicative.
+#### 6.3.3 Describe e debugging (`kubectl describe`)
 
-In modo analogo, si può accedere alla shell dei container dei microservizi (se l’immagine lo consente) o dei servizi infrastrutturali per effettuare verifiche aggiuntive, come il controllo della connettività verso Kafka o verso il server SMTP.
-
-#### 6.3.3 Verifica delle porte esposte
-
-Per verificare le porte esposte dai container verso l’host si può utilizzare il comando standard Docker:
+`kubectl describe` consente di ispezionare eventi e motivazioni di failure (pull immagini, probe, env mancanti, crash):
 
 ```bash
-docker ps
+kubectl -n dsbd describe pod <pod-name>
+kubectl -n dsbd describe deployment <deployment-name>
 ```
 
-La colonna `PORTS` mostra le associazioni del tipo `host_port:container_port` per ciascun servizio. Alcuni esempi tipici, in una configurazione di default, sono:
-
-* `8081:8081` per lo *User Manager Service*;
-* `8082:8082` per il *Data Collector Service*;
-* `8083:8083` per l’*Alert System*;
-* `8084:8084` per l’*Alert Notifier*;
-* `8085:8080` per l’interfaccia web di *Kafka UI*;
-* `80:80` per l’*API Gateway* NGINX.
-
-Le porte host riportate in questa colonna sono quelle da utilizzare per accedere alle API REST e ai servizi di supporto dai client esterni (browser, Postman, sistemi di integrazione).
-
-Qualora si modifichino le mappature delle porte nel file `docker-compose.yml`, è necessario rieseguire il ciclo di:
+Per aprire una shell in un Pod (se l’immagine lo consente):
 
 ```bash
-docker compose down
+kubectl -n dsbd exec -it <pod-name> -- sh
 ```
-
-seguito da
-
-```bash
-docker compose up --build -d
-```
-
-per applicare le modifiche alla configurazione dell’ambiente di esecuzione.
 
 ---
 
-### 6.4 Accesso ai servizi infrastrutturali (Kafka UI, API Gateway)
+### 6.4 Deploy dei servizi infrastrutturali (overview)
 
-Alcuni servizi infrastrutturali espongono interfacce HTTP utili per attività di monitoraggio, debugging e integrazione con client esterni.
+I servizi infrastrutturali sono dichiarati nei manifest Kubernetes sotto `k8s/infra/` e `k8s/observability/` e vengono applicati automaticamente tramite il deploy Kustomize.
 
-**Kafka UI** è raggiungibile, in configurazione predefinita, all’indirizzo:
+#### 6.4.1 PostgreSQL
 
-```text
-http://localhost:8085
-```
+PostgreSQL è definito in `k8s/infra/postgres/` e include:
 
-Una volta autenticati (se richiesto dalla configurazione dell’immagine), l’interfaccia consente di:
+* un **ConfigMap** di inizializzazione (`01-initdb-configmap.yaml`) per la creazione dei database logici (`userdb`, `datadb`);
+* un **PersistentVolumeClaim** (`02-pvc.yaml`) per garantire persistenza dei dati durante i riavvii dei Pod;
+* un **Deployment** (`03-deployment.yaml`) con container `postgres`;
+* un **Service** (`04-service.yaml`) esposto internamente come `postgres:5432` nel namespace `dsbd`.
 
-* verificare lo stato del cluster Kafka e del broker configurato;
-* ispezionare i topic utilizzati dalla piattaforma, in particolare `to-alert-system` e `to-notifier`;
-* consultare i messaggi prodotti dal *Data Collector Service* e consumati dall’*Alert System* e dall’*Alert Notifier*;
-* eseguire operazioni di diagnostica puntuale (ad esempio filtrare i messaggi in base alle chiavi o agli header) in caso di anomalie nel flusso eventi–notifiche.
+I microservizi applicativi puntano a PostgreSQL tramite `DB_HOST=postgres` e `DB_PORT=5432`.
 
-L’**API Gateway** basato su NGINX è esposto sulla porta HTTP standard dell’host:
+#### 6.4.2 Kafka e servizi correlati
 
-```text
-http://localhost
-```
+Lo stack di messaging è definito in `k8s/infra/kafka/` e include:
 
-Il gateway funge da punto di ingresso unico per i client HTTP/REST, instradando le richieste verso i microservizi applicativi secondo le regole definite nel file di configurazione `docker/nginx/nginx.conf`. In configurazione di default sono previsti, tra gli altri:
+* **Zookeeper** (`Deployment` + `Service`) esposto come `zookeeper:2181`;
+* **Kafka Broker** (`Deployment` + `Service`) esposto come `kafka:9092`.
 
-* un *upstream* verso lo *User Manager Service*, raggiungibile tramite path prefissati (ad esempio `/api/users/...`);
-* un *upstream* verso il *Data Collector Service*, raggiungibile tramite path prefissati (ad esempio `/api/flights/...`, `/api/interests/...`);
-* un endpoint di *health check* (`/health`) esposto direttamente dal gateway, che restituisce una risposta semplice per verificare rapidamente la raggiungibilità del front-end HTTP.
+I microservizi che producono/consumano eventi utilizzano `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`.
 
-L’utilizzo dell’API Gateway consente di centralizzare la gestione degli endpoint applicativi, delle politiche di routing e di eventuali estensioni future (rate limiting, autenticazione, osservabilità), mantenendo al contempo i microservizi isolati dietro un livello di astrazione coerente.
+#### 6.4.3 Kafka UI
+
+Kafka UI è definito in `k8s/infra/kafka/` come deployment `kafka-ui` e service `kafka-ui:8080` (ClusterIP). È utile per verificare topic, consumer group e messaggi pubblicati dai servizi applicativi.
+
+#### 6.4.4 Prometheus
+
+Prometheus è definito in `k8s/observability/prometheus/` e include:
+
+* **ServiceAccount** e regole **RBAC** per permettere lo *scraping* delle metriche dai target;
+* **ConfigMap** con la configurazione `prometheus.yml`;
+* **Deployment** e **Service** (`prometheus:9090`, ClusterIP).
+
+I microservizi espongono le metriche tramite endpoint **`/actuator/prometheus`** e vengono monitorati da Prometheus secondo la configurazione dichiarata nei manifest.
 
 ## 7. Accessing the Services
 
-### 7.1 User Manager Service
+### 7.1 Accesso tramite port-forward (approccio raccomandato)
 
-Lo *User Manager Service* espone un set di API REST dedicate alla gestione del ciclo di vita degli utenti applicativi. Le operazioni consentono di registrare, consultare e cancellare utenti identificati univocamente tramite indirizzo e‑mail, mantenendo un contratto stabile e facilmente integrabile da client esterni.
+In ambiente Kubernetes (cluster *kind*), i servizi sono esposti come **Service di tipo ClusterIP** e non risultano direttamente raggiungibili dall’host. L’accesso operativo (sviluppo, test e osservabilità) avviene quindi tramite **port-forward**, instaurando un tunnel locale verso il Service (o verso un singolo Pod).
 
-#### 7.1.1 Endpoint base (host, port)
+I comandi di `kubectl port-forward` devono essere eseguiti in terminali dedicati e **mantenuti in esecuzione** per tutta la durata dell’utilizzo (interruzione con `CTRL+C`). In caso di conflitto di porte, è possibile sostituire la porta locale con un valore libero.
 
-Il servizio può essere raggiunto in due modalità principali: tramite **API Gateway** (modalità consigliata per i client esterni) oppure in modo diretto, indirizzando il container del microservizio.
+#### 7.1.1 Port-forward API Gateway
+
+Per esporre localmente l’API Gateway (Service `api-gateway`, porta 80):
+
+```bash
+kubectl -n dsbd port-forward svc/api-gateway 8080:80
+```
+
+Una volta attivo il port-forward, il gateway è raggiungibile su:
+
+* **Base URL (gateway)**: `http://localhost:8080`
+
+#### 7.1.2 Port-forward Kafka UI
+
+Per esporre localmente la Kafka UI (Service `kafka-ui`, porta 8080):
+
+```bash
+kubectl -n dsbd port-forward svc/kafka-ui 8085:8080
+```
+
+Una volta attivo il port-forward, l’interfaccia è raggiungibile su:
+
+* **Kafka UI**: `http://localhost:8085`
+
+#### 7.1.3 Port-forward Prometheus
+
+Per esporre localmente Prometheus (Service `prometheus`, porta 9090):
+
+```bash
+kubectl -n dsbd port-forward svc/prometheus 9090:9090
+```
+
+Una volta attivo il port-forward, l’interfaccia è raggiungibile su:
+
+* **Prometheus UI**: `http://localhost:9090`
+
+---
+
+### 7.2 User Manager Service
+
+Lo *User Manager Service* espone un set di API REST dedicate alla gestione del ciclo di vita degli utenti (registrazione, lettura, cancellazione) e rappresenta l’autorità applicativa per la persistenza degli utenti nel *User DB*. Le API sono progettate per essere invocate tramite l’**API Gateway**, mantenendo un contratto stabile e facilmente integrabile da client esterni.
+
+#### 7.2.1 Endpoint base (host, port)
+
+Il servizio può essere raggiunto in due modalità principali: tramite **API Gateway** (esposizione verso l’host tramite port-forward) oppure in modo diretto, indirizzando il Service del microservizio.
 
 *Accesso tramite API Gateway*
 
-Quando lo stack è eseguito tramite Docker Compose, l’API Gateway NGINX espone un endpoint pubblico che instrada le richieste verso lo *User Manager Service*:
+Quando lo stack è eseguito su Kubernetes (kind), l’API Gateway rappresenta l’unico punto di ingresso HTTP verso l’esterno e instrada le richieste verso lo *User Manager Service*:
 
-* **Base URL (gateway)**: `http://localhost/api/users`
+* **Base URL (gateway)**: `http://localhost:8080/api/users`
 
 Tutte le operazioni descritte nelle sezioni successive sono accessibili prefissando i path indicati con questo endpoint.
 
@@ -1435,113 +1780,66 @@ Tutte le operazioni descritte nelle sezioni successive sono accessibili prefissa
 
 Per scenari di sviluppo o debug, è possibile invocare direttamente il microservizio, bypassando il gateway.
 
-* **Esecuzione locale (senza Docker)**
-  Il servizio espone le API HTTP sulla porta configurata nel `application.yml`:
-
-  * **Base URL**: `http://localhost:8081/api/users`
-
-* **Esecuzione in ambiente Docker (rete interna)**
-  All’interno della rete Docker, gli altri container possono raggiungere il servizio tramite il suo hostname logico:
+* **Accesso interno nel cluster**
+  Le chiamate tra servizi avvengono utilizzando il DNS del Service:
 
   * **Base URL interno**: `http://user-manager-service:8081/api/users`
 
-* **Accesso dall’host tramite port‑mapping**
-  Docker Compose effettua il mapping della porta esposta dal container verso l’host. Nel file `docker-compose.yml` è tipicamente configurato un mapping del tipo:
+* **Accesso dall’host tramite port-forward (opzionale)**
+  È possibile esporre localmente il Service del microservizio:
 
-  ```yaml
-  ports:
-    - "8081:8081"
+  ```bash
+  kubectl -n dsbd port-forward svc/user-manager-service 8081:8081
   ```
 
   In questo caso, dall’host è possibile invocare il servizio direttamente tramite:
 
   * **Base URL host**: `http://localhost:8081/api/users`
 
-#### 7.1.2 Principali API REST esposte (registrazione, lettura, cancellazione utente)
+#### 7.2.2 Principali API REST esposte
 
-Le principali operazioni REST esposte dallo *User Manager Service* sono le seguenti.
+Le principali operazioni REST esposte dallo *User Manager Service* sono le seguenti:
 
-**Registrazione di un nuovo utente**
+* **Registrazione di un nuovo utente**
 
-* **Metodo**: `POST`
-* **URL**: `/api/users`
-* **Body (JSON)**: contiene almeno `email` e `name` dell’utente.
+  * **Metodo**: `POST`
+  * **URL**: `/api/users`
+  * **Body (JSON)**: contiene almeno `email` e `name` dell’utente.
 
-Esempio di payload:
+* **Lettura di un utente specifico**
 
-```json
-{
-  "email": "alice@example.com",
-  "name": "Alice Rossi"
-}
-```
+  * **Metodo**: `GET`
+  * **URL**: `/api/users/{email}`
 
-L’endpoint esegue la validazione dei dati in ingresso (in particolare del formato dell’e‑mail) e verifica l’assenza di duplicati nel database.
+* **Elenco degli utenti**
 
-**Lettura di un utente per e‑mail**
+  * **Metodo**: `GET`
+  * **URL**: `/api/users`
 
-* **Metodo**: `GET`
-* **URL**: `/api/users/{email}`
+* **Cancellazione di un utente**
 
-Esempio di richiesta:
+  * **Metodo**: `DELETE`
+  * **URL**: `/api/users/{email}`
 
-```text
-GET /api/users/alice@example.com
-```
+Quando l’accesso avviene tramite gateway, i path sopra riportati sono da intendersi come relativi al prefisso `http://localhost:8080`.
 
-L’endpoint restituisce i dati dell’utente associato all’e‑mail indicata, se presente nel sistema.
+#### 7.2.3 Codici di risposta attesi
 
-**Elenco completo degli utenti registrati**
+Le principali convenzioni sui codici di stato HTTP restituiti dal servizio sono:
 
-* **Metodo**: `GET`
-* **URL**: `/api/users`
-
-L’endpoint restituisce la lista completa degli utenti registrati, eventualmente paginata o filtrata in base alle opzioni implementate.
-
-**Cancellazione di un utente**
-
-* **Metodo**: `DELETE`
-* **URL**: `/api/users/{email}`
-
-Esempio di richiesta:
-
-```text
-DELETE /api/users/alice@example.com
-```
-
-L’endpoint rimuove l’utente associato all’e‑mail indicata, se esistente.
-
-#### 7.1.3 Codici di risposta attesi per le operazioni chiave
-
-Le principali convenzioni sui codici di stato HTTP restituite dallo *User Manager Service* sono le seguenti.
-
-* **Registrazione utente (`POST /api/users`)**
-
-  * `201 Created` se l’utente è stato creato correttamente;
-  * `400 Bad Request` in presenza di errori di validazione sui dati di input (ad esempio e‑mail malformata o campi obbligatori mancanti);
-  * `409 Conflict` se esiste già un utente registrato con la stessa e‑mail.
-
-* **Lettura utente (`GET /api/users/{email}`)**
-
-  * `200 OK` se l’utente è stato trovato e i suoi dati sono restituiti nel body della risposta;
-  * `404 Not Found` se non esiste alcun utente associato all’e‑mail indicata.
-
-* **Elenco utenti (`GET /api/users`)**
-
-  * `200 OK` con la lista (possibilmente vuota) degli utenti correnti.
-
-* **Cancellazione utente (`DELETE /api/users/{email}`)**
-
-  * `204 No Content` se l’utente è stato cancellato correttamente;
-  * `404 Not Found` se non esiste alcun utente associato all’e‑mail indicata.
+* `201 Created` per la creazione di un nuovo utente;
+* `200 OK` per richieste di lettura o lista eseguite con successo;
+* `204 No Content` per cancellazioni avvenute correttamente;
+* `400 Bad Request` in caso di payload non valido o campi obbligatori mancanti;
+* `404 Not Found` quando l’utente richiesto non esiste.
 
 ---
 
-### 7.2 Data Collector Service
+### 7.3 Data Collector Service
 
-Il *Data Collector Service* espone le API REST per la gestione degli interessi utente–aeroporto e per l’interrogazione dei dati di volo raccolti dalle OpenSky Network API. In questa release, gli **interessi** includono anche la configurazione di soglie *high_value* e *low_value* per l’attivazione di notifiche di alert.
+Il *Data Collector Service* espone API REST per la gestione degli aeroporti di interesse e per l’interrogazione dello stato dei voli, persiste le informazioni nel *Data DB* e interagisce con OpenSky Network per recuperare lo stato corrente dei voli. L’accesso da parte dei client è previsto tramite **API Gateway**.
 
-#### 7.2.1 Endpoint base (host, port)
+#### 7.3.1 Endpoint base (host, port)
 
 Analogamente allo *User Manager*, il *Data Collector Service* può essere invocato tramite API Gateway oppure in modo diretto.
 
@@ -1549,143 +1847,54 @@ Analogamente allo *User Manager*, il *Data Collector Service* può essere invoca
 
 L’API Gateway espone verso l’esterno i principali endpoint del *Data Collector* sotto i seguenti prefissi:
 
-* **Interessi utente–aeroporto**: `http://localhost/api/interests`
-* **Interrogazioni sui voli**: `http://localhost/api/flights`
+* **Interessi utente–aeroporto**: `http://localhost:8080/api/interests`
+* **Interrogazioni sui voli**: `http://localhost:8080/api/flights`
 
-Gli esempi di richiesta riportati nelle sezioni successive assumono questi prefissi come base URL in ambiente containerizzato.
+Gli esempi di richiesta riportati nelle sezioni successive assumono questi prefissi come base URL.
 
 *Accesso diretto al microservizio*
 
-* **Esecuzione locale (senza Docker)**
-  Il servizio utilizza la porta configurata nel `application.yml`:
-
-  * **Base URL**: `http://localhost:8082/api`
-
-  Gli endpoint effettivi risultano quindi, ad esempio, `http://localhost:8082/api/interests` e `http://localhost:8082/api/flights`.
-
-* **Esecuzione in ambiente Docker (rete interna)**
-  All’interno della rete Docker, gli altri container raggiungono il servizio tramite:
+* **Accesso interno nel cluster**
 
   * **Base URL interno**: `http://data-collector-service:8082/api`
 
-* **Accesso dall’host tramite port‑mapping**
-  Il file `docker-compose.yml` definisce il mapping della porta del container verso l’host, tipicamente:
+* **Accesso dall’host tramite port-forward (opzionale)**
 
-  ```yaml
-  ports:
-    - "8082:8082"
+  ```bash
+  kubectl -n dsbd port-forward svc/data-collector-service 8082:8082
   ```
 
   In questo caso, dall’host è possibile invocare direttamente il servizio tramite:
 
   * **Base URL host**: `http://localhost:8082/api`
 
-#### 7.2.2 API REST per la gestione degli aeroporti e degli interessi (incluse le soglie)
+#### 7.3.2 API REST per aeroporti e interessi (incluse le soglie)
 
-Gli aeroporti monitorabili sono mantenuti nel *Data DB* e possono essere precaricati tramite script SQL o migrazioni Flyway. La gestione dinamica del catalogo aeroporti può essere estesa in futuro con API dedicate; nella configurazione corrente, l’attenzione è focalizzata sulla gestione degli **interessi utente–aeroporto**, comprensivi di soglie.
+Le API dedicate alla gestione degli interessi utente–aeroporto permettono di:
 
-**Registrazione di un interesse utente–aeroporto con soglie**
+* creare o aggiornare un interesse specificando `userEmail`, `airportCode` e (se previsto) le soglie `highValue`/`lowValue`;
+* ottenere la lista degli interessi configurati;
+* leggere o aggiornare un singolo interesse identificato da coppia (`userEmail`, `airportCode`).
 
-* **Metodo**: `POST`
-* **URL**: `/api/interests`
-* **Body (JSON)**: contiene e‑mail utente, codice aeroporto e parametri di soglia.
+I path esposti dal servizio sono raggiungibili tramite gateway sotto il prefisso `/api/interests`.
 
-Esempio di payload:
+#### 7.3.3 API REST per interrogare i voli
 
-```json
-{
-  "userEmail": "alice@example.com",
-  "airportCode": "LIRF",
-  "lowValue": 15,
-  "highValue": 60
-}
-```
+Le API di interrogazione dei voli consentono di:
 
-I campi `lowValue` e `highValue` rappresentano le soglie di interesse, espresse in minuti di ritardo, che verranno utilizzate dall’*Alert System* per determinare quando generare notifiche.
+* recuperare lo stato più recente dei voli per un aeroporto;
+* effettuare interrogazioni su intervalli temporali;
+* ottenere liste e dettagli relativi ai voli osservati.
 
-**Aggiornamento di un interesse esistente (incluse le soglie)**
-
-* **Metodo**: `PUT`
-* **URL**: `/api/interests/{userEmail}/{airportCode}`
-
-Esempio di richiesta:
-
-```text
-PUT /api/interests/alice@example.com/LIRF
-```
-
-con body JSON analogo a quello utilizzato per la creazione, in cui è possibile modificare `lowValue` e `highValue`.
-
-**Cancellazione di un interesse**
-
-* **Metodo**: `DELETE`
-* **URL**: `/api/interests/{userEmail}/{airportCode}`
-
-Esempio di richiesta:
-
-```text
-DELETE /api/interests/alice@example.com/LIRF
-```
-
-**Elenco degli interessi per un utente**
-
-* **Metodo**: `GET`
-* **URL**: `/api/interests`
-* **Query parameters**:
-
-  * `userEmail`: e‑mail dell’utente (obbligatorio).
-
-Esempio di richiesta:
-
-```text
-GET /api/interests?userEmail=alice@example.com
-```
-
-Il servizio restituisce la lista degli interessi configurati per l’utente indicato, comprensivi dei valori di soglia configurati.
-
-#### 7.2.3 API REST per interrogare i voli
-
-Il *Data Collector Service* espone inoltre API dedicate all’interrogazione dei dati di volo raccolti da OpenSky e memorizzati nel *Data DB*.
-
-**Ultimo volo per aeroporto e direzione**
-
-* **Metodo**: `GET`
-* **URL**: `/api/flights/last`
-* **Query parameters**:
-
-  * `airportCode`: codice dell’aeroporto (es. `LIRF`);
-  * `direction`: direzione del volo, tipicamente `ARRIVAL` o `DEPARTURE`.
-
-Esempio di richiesta:
-
-```text
-GET /api/flights/last?airportCode=LIRF&direction=ARRIVAL
-```
-
-L’endpoint restituisce l’ultimo volo registrato per la combinazione indicata, includendo le principali informazioni operative (identificativo del volo, orari schedulati ed effettivi, eventuali ritardi, stato, timestamp di raccolta).
-
-**Intervallo temporale di interesse**
-
-* **Metodo**: `GET`
-* **URL**: `/api/flights`
-* **Query parameters**:
-
-  * `airportCode`: codice dell’aeroporto (obbligatorio);
-  * `direction`: direzione del volo (`ARRIVAL`/`DEPARTURE`);
-  * `from`: istante iniziale dell’intervallo, espresso in epoch seconds;
-  * `to`: istante finale dell’intervallo, espresso in epoch seconds.
-
-L’endpoint restituisce tutti i voli che soddisfano i criteri di ricerca indicati.
-
-Ulteriori endpoint possono essere presenti per interrogazioni più specifiche (ad esempio medie di ritardo su intervalli temporali), mantenendo la stessa convenzione sui parametri principali (`airportCode`, `direction`, intervallo temporale).
+I path esposti dal servizio sono raggiungibili tramite gateway sotto il prefisso `/api/flights`.
 
 ---
 
-### 7.3 gRPC Interface
+### 7.4 gRPC Interface
 
-Lo *User Manager Service* espone, oltre alle API REST, un’interfaccia **gRPC** che consente agli altri microservizi di verificare in modo efficiente l’esistenza di un utente a partire dal suo indirizzo e‑mail. Questa interfaccia è utilizzata internamente dal *Data Collector Service* durante la gestione degli interessi.
+Lo *User Manager Service* espone, oltre alle API REST, un’interfaccia gRPC utilizzata per la **validazione dell’esistenza di un utente**. Tale interfaccia è impiegata internamente dal *Data Collector Service* durante la gestione degli interessi.
 
-#### 7.3.1 Panoramica del servizio gRPC esposto dallo User Manager
+#### 7.4.1 Panoramica del servizio gRPC esposto dallo User Manager
 
 L’interfaccia gRPC prevede un servizio logico, ad esempio `UserValidationService`, con un metodo principale:
 
@@ -1696,55 +1905,47 @@ in cui:
 * `UserEmailRequest` contiene un singolo campo `email`;
 * `UserExistsResponse` contiene un campo booleano che indica se l’utente è presente nel database degli utenti gestito dallo *User Manager*.
 
-Il servizio gRPC è pubblicato sulla porta configurata nelle proprietà del microservizio e non è destinato al consumo diretto da parte di client esterni HTTP, ma esclusivamente ad uso interno tra microservizi.
+Il servizio gRPC è pubblicato sul Service `user-manager-service` (porta 9090) e **non è destinato a client esterni HTTP**, ma esclusivamente ad uso interno tra microservizi.
 
-#### 7.3.2 Utilizzo interno da parte del Data Collector (non richiesto lato utente finale)
+#### 7.4.2 Utilizzo interno da parte del Data Collector
 
-Il *Data Collector Service* utilizza il metodo `userExists` prima di registrare un nuovo interesse utente–aeroporto. La sequenza tipica è la seguente:
+Il *Data Collector Service* utilizza il metodo `userExists` prima di accettare la creazione o l’aggiornamento di un interesse utente–aeroporto. La sequenza tipica è la seguente:
 
 1. Il client invia una richiesta REST a `POST /api/interests` specificando `userEmail` e `airportCode`.
 2. Il *Data Collector* costruisce una richiesta gRPC `UserEmailRequest` e invoca `userExists` sullo *User Manager*.
 3. Se la risposta indica che l’utente esiste (`exists = true`), il *Data Collector* procede a registrare o aggiornare l’interesse nel proprio database;
-4. Se l’utente non esiste, il *Data Collector* restituisce un errore applicativo (ad esempio `400 Bad Request` o `404 Not Found`), evitando di registrare interessi per utenti non validi.
+4. Se l’utente non esiste, il *Data Collector* restituisce un errore (tipicamente `404 Not Found`), evitando di registrare interessi per utenti non validi.
 
-Questa interazione permette di mantenere il *User Manager* come *source of truth* per l’identità applicativa, evitando duplicazioni di responsabilità.
+Questa interazione permette di mantenere il *User Manager* come punto unico di verità per l’identità applicativa, evitando duplicazioni di responsabilità.
 
 ---
 
-### 7.4 API Gateway
+### 7.5 API Gateway
 
-L’**API Gateway** è implementato tramite NGINX e costituisce il punto di ingresso unico per le richieste HTTP verso i microservizi interni. Il suo scopo principale è centralizzare la pubblicazione delle API, semplificare la configurazione dei client e schermare i dettagli di rete dei singoli servizi.
+L’**API Gateway** è implementato tramite NGINX e costituisce il punto di accesso pubblico alle API dell’intero sistema. Il suo obiettivo è fornire un singolo endpoint verso i client e schermare i dettagli di rete dei singoli servizi.
 
-#### 7.4.1 Endpoint pubblici esposti dal gateway
+#### 7.5.1 Endpoint pubblici esposti dal gateway
 
-Quando lo stack è in esecuzione tramite Docker Compose, l’API Gateway è esposto sull’host tramite il mapping di porta definito nel `docker-compose.yml`:
+In ambiente Kubernetes (kind), l’API Gateway è esposto come Service di tipo ClusterIP e viene raggiunto dall’host tramite port-forward (vedi sezione 7.1.1). L’accesso esterno avviene quindi tramite:
 
-```yaml
-api-gateway:
-  ports:
-    - "80:80"
-```
+* `http://localhost:8080`
 
-L’accesso esterno avviene quindi tramite:
-
-* **Base URL gateway**: `http://localhost`
-
-I principali path pubblici sono:
+Il gateway espone pubblicamente i seguenti endpoint principali:
 
 * **Gestione utenti** (proxy verso *User Manager Service*):
 
-  * `http://localhost/api/users` (lista e creazione utenti);
-  * `http://localhost/api/users/{email}` (lettura e cancellazione di un utente specifico).
+  * `http://localhost:8080/api/users` (lista e creazione utenti);
+  * `http://localhost:8080/api/users/{email}` (lettura e cancellazione di un utente specifico).
 
 * **Gestione interessi e interrogazione voli** (proxy verso *Data Collector Service*):
 
-  * `http://localhost/api/interests` (creazione, elenco e aggiornamento degli interessi);
-  * `http://localhost/api/interests/{userEmail}/{airportCode}` (gestione di un singolo interesse);
-  * `http://localhost/api/flights/...` (interrogazioni sui voli, ad esempio `/last`, intervalli temporali, ecc.).
+  * `http://localhost:8080/api/interests` (creazione, elenco e aggiornamento degli interessi);
+  * `http://localhost:8080/api/interests/{userEmail}/{airportCode}` (gestione di un singolo interesse);
+  * `http://localhost:8080/api/flights/...` (interrogazioni sui voli, ad esempio `/last`, intervalli temporali, ecc.).
 
-I client HTTP possono utilizzare esclusivamente questi endpoint senza doversi preoccupare dei nomi dei container e delle porte interne.
+I client HTTP possono utilizzare esclusivamente questi endpoint pubblici senza doversi preoccupare dei nomi dei servizi e delle porte interne.
 
-#### 7.4.2 Instradamento verso i microservizi interni
+#### 7.5.2 Instradamento verso i microservizi interni
 
 La configurazione di NGINX instrada i path pubblici verso i microservizi interni tramite direttive `location` e `proxy_pass`. A titolo esemplificativo:
 
@@ -1762,47 +1963,44 @@ location /api/flights/ {
 }
 ```
 
-In questo modo, un client che invoca `http://localhost/api/users` viene automaticamente instradato verso il container `user-manager-service` sulla porta `8081`, mentre le richieste a `/api/interests` e `/api/flights` vengono indirizzate al container `data-collector-service` sulla porta `8082`.
+In questo modo, un client che invoca `http://localhost:8080/api/users/` viene servito dal *User Manager*, mentre le richieste verso `.../api/interests` e `.../api/flights` vengono inoltrate al *Data Collector*.
 
 ---
 
-### 7.5 Alert System & Alert Notifier
+### 7.6 Alert System & Alert Notifier
 
-Gli ultimi due microservizi applicativi sono dedicati alla pipeline di *alerting*: l’*Alert System Service* elabora gli eventi di volo e valuta le soglie configurate sugli interessi utente–aeroporto, mentre l’*Alert Notifier Service* si occupa dell’invio delle notifiche e‑mail verso gli utenti finali.
+Gli ultimi due microservizi applicativi sono dedicati alla pipeline di alerting: l’*Alert System* valuta le soglie sugli interessi e produce eventi di notifica, mentre l’*Alert Notifier* si occupa dell’invio delle notifiche e‑mail verso gli utenti finali.
 
-#### 7.5.1 Ruolo dei servizi nella pipeline di notifica
+#### 7.6.1 Ruolo dei servizi nella pipeline di notifica
 
-L’*Alert System Service* opera come **consumer Kafka** sul topic a cui il *Data Collector* pubblica gli eventi relativi ai voli che superano le condizioni di interesse (ad esempio ritardi oltre `lowValue` o `highValue`). Per ogni messaggio, il servizio:
+L’*Alert System Service* opera come **consumer Kafka** sul topic che veicola gli eventi di osservazione dei voli (ad esempio il topic `to-alert-system`). Ogni evento contiene le informazioni necessarie a determinare se un interesse debba generare una notifica (ritardo oltre `lowValue` o `highValue`). Per ogni messaggio, il servizio:
 
 1. recupera dal *Data DB* le informazioni sull’interesse associato;
 2. valuta le soglie configurate per determinare se la condizione richiede una notifica;
-3. in caso positivo, produce un nuovo messaggio su un topic Kafka dedicato alle notifiche (ad esempio `to-notifier`), arricchito con i dati necessari all’invio dell’e‑mail (indirizzo del destinatario, aeroporto, dettaglio del volo, ritardo registrato, ecc.).
+3. in caso positivo, produce un nuovo messaggio su un topic Kafka dedicato alle notifiche (ad esempio `to-notifier`), includendo i dettagli utili (destinatario, aeroporto, dettaglio del volo, ritardo registrato, ecc.).
 
 L’*Alert Notifier Service* è a sua volta un **consumer Kafka** sul topic delle notifiche. Per ogni evento ricevuto, esso:
 
 1. costruisce il contenuto dell’e‑mail (oggetto e corpo del messaggio) sulla base delle informazioni contenute nell’evento di notifica;
-2. utilizza il `JavaMailSender` configurato tramite variabili `MAIL_*` per inviare l’e‑mail verso il server SMTP (ad esempio Mailtrap);
-3. registra nei log l’esito dell’operazione, includendo eventuali errori restituiti dal server SMTP.
+2. utilizza il `JavaMailSender` configurato tramite variabili `MAIL_*` per inviare il messaggio verso il server SMTP di testing.
 
-Questi microservizi non espongono **API REST** pubbliche destinate ai client esterni: il loro ruolo è interamente guidato dal consumo e dalla produzione di messaggi Kafka nella pipeline asincrona.
-
-#### 7.5.2 Osservazione del flusso tramite log e Kafka UI
+#### 7.6.2 Osservazione del flusso tramite log e Kafka UI
 
 La verifica del corretto funzionamento della pipeline di alerting può essere effettuata principalmente tramite:
 
 * **log dei microservizi**;
-* **Kafka UI** esposta dallo stack Docker.
+* **Kafka UI** esposta tramite port-forward.
 
 Per ispezionare i log è possibile utilizzare, ad esempio:
 
 ```bash
-docker compose logs -f alert-system-service
+kubectl -n dsbd logs -f deploy/alert-system-service
 ```
 
 e, in un secondo terminale:
 
 ```bash
-docker compose logs -f alert-notifier-service
+kubectl -n dsbd logs -f deploy/alert-notifier-service
 ```
 
 In questo modo è possibile osservare in tempo reale:
@@ -1811,9 +2009,9 @@ In questo modo è possibile osservare in tempo reale:
 * la generazione di eventi di notifica sui topic Kafka;
 * l’elaborazione dei messaggi da parte dell’*Alert Notifier* e il tentativo di invio delle e‑mail.
 
-La **Kafka UI** è esposta sull’host tramite il mapping di porta definito nel `docker-compose.yml` (tipicamente `8080:8080`) ed è raggiungibile all’indirizzo:
+Per utilizzare la **Kafka UI**, avviare il port-forward come descritto nella sezione 7.1.2 e accedere all’interfaccia tramite:
 
-* `http://localhost:8080`
+* `http://localhost:8081`
 
 All’interno della Kafka UI è possibile:
 
@@ -1821,7 +2019,48 @@ All’interno della Kafka UI è possibile:
 * ispezionare i messaggi prodotti dal *Data Collector* e consumati dall’*Alert System*;
 * controllare i messaggi di notifica destinati all’*Alert Notifier*.
 
-L’osservazione combinata dei log dei microservizi, dei topic in Kafka UI e delle e‑mail recapitate dal provider SMTP di test consente di validare end‑to‑end il comportamento della pipeline di alerting.
+---
+
+### 7.7 Kafka UI
+
+La Kafka UI fornisce un’interfaccia web per ispezionare il broker Kafka, i topic e i messaggi scambiati tra i microservizi.
+
+#### 7.7.1 Endpoint di accesso (host, port)
+
+Dopo aver avviato il port-forward del Service `kafka-ui` (vedi sezione 7.1.2), la UI è raggiungibile tramite:
+
+* **URL**: `http://localhost:8085`
+
+#### 7.7.2 Verifica dei topic e ispezione messaggi
+
+Dall’interfaccia è possibile:
+
+* controllare che i topic applicativi siano stati creati correttamente;
+* verificare l’attività dei consumer group e lo stato dei lag;
+* ispezionare i messaggi pubblicati sui topic principali della pipeline (produzione da *Data Collector*, consumo da *Alert System*, propagazione verso *Alert Notifier*).
+
+---
+
+### 7.8 Prometheus UI
+
+Prometheus consente di verificare lo scraping delle metriche esposte dai microservizi (endpoint `/actuator/prometheus`) e di eseguire query sulle serie temporali raccolte.
+
+#### 7.8.1 Endpoint di accesso (host, port)
+
+Dopo aver avviato il port-forward del Service `prometheus` (vedi sezione 7.1.3), la UI è raggiungibile tramite:
+
+* **URL**: `http://localhost:9090`
+
+#### 7.8.2 Verifica scraping (Targets) e query base
+
+All’interno della UI è possibile:
+
+* verificare lo stato dello scraping accedendo a **Status → Targets**, controllando che i target risultino *UP*;
+* eseguire query di base (tab **Graph**) per verificare la presenza delle metriche tecniche e custom, ad esempio:
+
+  * metriche generali JVM/Spring Boot (`jvm_*`, `process_*`, `http_server_requests_*`);
+  * metriche esposte dai componenti applicativi tramite Micrometer/Actuator;
+  * serie temporali collegate a circuit breaker e resilienza (se esposte dal runtime).
 
 ## 8. Using Postman Collections
 
@@ -1834,9 +2073,12 @@ postman/
   ├── homework-1/
   │   ├── hw1-user-manager-api.postman_collection.json
   │   └── hw1-data-collector-api.postman_collection.json
-  └── homework-2/
-      ├── hw2 - user-manager-api.postman_collection.json
-      └── hw2 - data-collector-api.postman_collection.json
+  ├── homework-2/
+  │   ├── hw2-user-manager-api.postman_collection.json
+  │   └── hw2-data-collector-api.postman_collection.json
+  └── homework-3/
+      ├── hw3-user-manager-api.postman_collection.json
+      └── hw3-data-collector-api.postman_collection.json
 ```
 
 Le collection presenti in `postman/homework-1/` rappresentano il set originario di richieste per l’esercizio delle API di **User Manager** e **Data Collector** nella configurazione di base. Le collection in `postman/homework-2/` estendono tale set includendo:
@@ -1845,7 +2087,9 @@ Le collection presenti in `postman/homework-1/` rappresentano il set originario 
 * scenari di errore e validazione allineati alle nuove regole applicative;
 * richieste dedicate alle nuove API esposte dal **Data Collector** per interrogazioni analitiche (ad esempio media dei voli su intervalli temporali).
 
-Per verificare il comportamento della versione corrente del sistema è consigliabile utilizzare in via preferenziale le collection collocate in `postman/homework-2/`, mantenendo le collection di `homework-1` come riferimento storico per la versione base.
+Le collection in `postman/homework-3/` mantengono lo stesso set di richieste della versione precedente, risultando quindi pienamente compatibili con gli scenari di test già definiti.
+
+Per verificare il comportamento della versione corrente del sistema è consigliabile utilizzare in via preferenziale le collection collocate in `postman/homework-3/`, mantenendo le collection delle versioni precedenti come riferimento storico.
 
 ---
 
@@ -1865,9 +2109,10 @@ Le collection importate possono essere duplicate, rinominate o modificate senza 
 La collection **User Manager API** corrisponde ai file:
 
 * `postman/homework-1/hw1-user-manager-api.postman_collection.json`;
-* `postman/homework-2/hw2 - user-manager-api.postman_collection.json`.
+* `postman/homework-2/hw2-user-manager-api.postman_collection.json`;
+* `postman/homework-3/hw3-user-manager-api.postman_collection.json`.
 
-La versione in `homework-2` è quella di riferimento per la versione corrente del sistema. Essa contiene un insieme di richieste preconfigurate verso il microservizio **User Manager**, che espone le API responsabili del ciclo di vita degli utenti. In particolare, sono presenti richieste per:
+La versione in `homework-3` è quella di riferimento per la versione corrente del sistema. Essa contiene un insieme di richieste preconfigurate verso il microservizio **User Manager**, che espone le API responsabili del ciclo di vita degli utenti. In particolare, sono presenti richieste per:
 
 * **registrare un nuovo utente** (`UM-01 – Create user (201 Created)`), con corpo JSON contenente almeno `email` e `name`;
 * **tentare la registrazione di un utente duplicato** (`UM-02 – Create user (409 Conflict)`), utile per verificare la gestione dei vincoli di unicità;
@@ -1876,22 +2121,29 @@ La versione in `homework-2` è quella di riferimento per la versione corrente de
 * **cancellare un utente esistente** (`UM-05 – Delete user (204 No Content)`);
 * **gestire casi di errore sulla cancellazione** (`UM-06 – Delete user (404 Not Found)`).
 
-Tutte le richieste della collection fanno riferimento, in configurazione predefinita, all’endpoint HTTP del microservizio User Manager esposto in ambiente Docker su:
+Tutte le richieste della collection fanno riferimento, in configurazione predefinita, al seguente endpoint HTTP:
 
 ```text
 http://localhost:8081/api/users
 ```
 
-La porta `8081` è quella configurata per il container `user-manager-service` all’interno del `docker-compose.yml`.
+Quando il sistema è eseguito su Kubernetes (*kind*), l’endpoint sopra riportato è raggiungibile attivando un **port-forward** verso il Service `user-manager-service` (porta esposta `8081`):
+
+```bash
+kubectl -n dsbd port-forward svc/user-manager-service 8081:8081
+```
+
+In presenza di conflitti (ad esempio porta `8081` già in uso), è possibile selezionare una porta locale differente (es. `8083:8081`) aggiornando coerentemente gli URL nelle collection oppure utilizzando variabili di ambiente Postman (vedi sezione 8.3).
 
 #### 8.2.2 Data Collector API collection
 
 La collection **Data Collector API** corrisponde ai file:
 
-* `postman/homework-1/hw1-data-collector-api.postman_collection.json`;
-* `postman/homework-2/hw2 - data-collector-api.postman_collection.json`.
+* `postman/homework-3/hw1-data-collector-api.postman_collection.json`;
+* `postman/homework-2/hw2-data-collector-api.postman_collection.json`.
+* `postman/homework-3/hw3-data-collector-api.postman_collection.json`.
 
-La versione in `homework-2` include l’insieme aggiornato di richieste verso il microservizio **Data Collector**, esteso con la gestione delle soglie sugli interessi e con nuove API di interrogazione analitica. Le richieste coprono, tra le altre, le seguenti aree funzionali:
+La versione in `homework-3` include l’insieme aggiornato di richieste verso il microservizio **Data Collector**, esteso con la gestione delle soglie sugli interessi e con nuove API di interrogazione analitica. Le richieste coprono, tra le altre, le seguenti aree funzionali:
 
 * **gestione degli aeroporti** (creazione, lettura, cancellazione), con richieste dedicate al popolamento del catalogo degli aeroporti monitorabili;
 * **gestione degli interessi utente–aeroporto con soglie**: creazione, aggiornamento, lettura e cancellazione degli interessi che associano un utente a un aeroporto, comprensivi dei valori `highValue` e `lowValue` utilizzati per l’alerting;
@@ -1901,10 +2153,16 @@ La versione in `homework-2` include l’insieme aggiornato di richieste verso il
   * calcolare la **media dei voli** in un determinato numero di giorni per direzione (`DC-29`–`DC-32`);
 * **gestione dei casi di errore** (utente inesistente, aeroporto inesistente, soglie non valide, direzioni non valide, ecc.), tramite richieste esplicite che consentono di verificare il comportamento del sistema in condizioni non corrette.
 
-In configurazione predefinita, le richieste puntano al microservizio Data Collector esposto in ambiente Docker su:
+In configurazione predefinita, le richieste puntano al seguente endpoint:
 
 ```text
 http://localhost:8082/api
+```
+
+Quando il sistema è eseguito su Kubernetes (*kind*), l’endpoint sopra riportato è raggiungibile attivando un **port-forward** verso il Service `data-collector-service` (porta esposta `8082`):
+
+```bash
+kubectl -n dsbd port-forward svc/data-collector-service 8082:8082
 ```
 
 Le API per aeroporti, interessi e voli sono organizzate su path coerenti con il modello di dominio, ad esempio:
@@ -1917,20 +2175,22 @@ Le API per aeroporti, interessi e voli sono organizzate su path coerenti con il 
 
 ### 8.3 Configurazione delle variabili di ambiente in Postman (host, port, base URL)
 
-Le collection fornite sono già configurate per funzionare con la configurazione predefinita descritta nel `docker-compose.yml`, ossia:
+Le collection fornite sono già configurate per funzionare con i valori predefiniti, ossia:
 
 * **User Manager** raggiungibile su `http://localhost:8081`;
 * **Data Collector** raggiungibile su `http://localhost:8082`.
+
+In esecuzione su Kubernetes (*kind*), è necessario assicurarsi che i relativi **port-forward** siano attivi e mappati sulle porte locali attese dalle collection (vedi sezioni 8.2.1 e 8.2.2).
 
 Gli URL presenti nelle collection utilizzano direttamente questi valori. Se si desidera rendere i test più portabili (ad esempio per eseguire il sistema su host o porte differenti), è possibile introdurre un semplice layer di parametrizzazione tramite **environment variables** di Postman.
 
 Un setup tipico prevede la creazione di un ambiente Postman con le seguenti variabili:
 
-| Variabile                 | Valore predefinito      | Descrizione                                |
-| ------------------------- | ----------------------- | ------------------------------------------ |
-| `user_manager_base_url`   | `http://localhost:8081` | Base URL del microservizio User Manager    |
-| `data_collector_base_url` | `http://localhost:8082` | Base URL del microservizio Data Collector  |
-| `api_gateway_base_url`    | `http://localhost`      | Base URL dell’API Gateway NGINX (porta 80) |
+| Variabile                 | Valore predefinito      | Descrizione                               |
+| ------------------------- | ----------------------- | ----------------------------------------- |
+| `user_manager_base_url`   | `http://localhost:8081` | Base URL del microservizio User Manager   |
+| `data_collector_base_url` | `http://localhost:8082` | Base URL del microservizio Data Collector |
+| `api_gateway_base_url`    | `http://localhost:8080` | Base URL dell’API Gateway NGINX           |
 
 Dopo aver creato l’ambiente, è possibile **adattare le request esistenti** sostituendo il prefisso fisso degli URL con i placeholder, ad esempio:
 
@@ -1938,8 +2198,6 @@ Dopo aver creato l’ambiente, è possibile **adattare le request esistenti** so
 * `http://localhost:8082/api/interests` → `{{data_collector_base_url}}/api/interests`.
 
 In questo modo, un eventuale cambiamento di host o porta potrà essere gestito modificando unicamente i valori nell’ambiente Postman, senza intervenire su ogni singola richiesta.
-
-Qualora si preferisca utilizzare direttamente la configurazione di default, è sufficiente importare le collection e assicurarsi che lo stack Docker sia in esecuzione con le porte `8081` e `8082` esposte come definito nel `docker-compose.yml`.
 
 ---
 
@@ -1949,9 +2207,9 @@ Le collection fornite consentono di esercitare in modo sistematico le principali
 
 #### 8.4.1 Registrazione di un nuovo utente
 
-Per registrare un nuovo utente tramite Postman è possibile utilizzare la request `UM-01 – Registrazione utente (caso positivo)` nella collection **User Manager API** (versione `homework-2`). La procedura operativa è la seguente:
+Per registrare un nuovo utente tramite Postman è possibile utilizzare la request `UM-01 – Registrazione utente (caso positivo)` nella collection **User Manager API** (versione `homework-3`). La procedura operativa è la seguente:
 
-1. Assicurarsi che lo stack Docker sia in esecuzione e che il microservizio User Manager sia raggiungibile su `http://localhost:8081`.
+1. Assicurarsi che il sistema sia in esecuzione e che lo *User Manager Service* sia raggiungibile su `http://localhost:8081` (eventualmente tramite port-forward).
 
 2. Aprire la collection **User Manager API** e selezionare la request `UM-01 – Registrazione utente (caso positivo)`.
 
@@ -1974,7 +2232,7 @@ Questo scenario permette di verificare sia la corretta esposizione delle API RES
 
 #### 8.4.2 Registrazione interessi utente–aeroporto con soglie
 
-Per registrare un **interesse utente–aeroporto** comprensivo di soglie è possibile utilizzare la request `DC-01 – Registrazione interesse (caso positivo)` nella collection **Data Collector API** (versione `homework-2`). Lo scenario tipico prevede i seguenti passi:
+Per registrare un **interesse utente–aeroporto** comprensivo di soglie è possibile utilizzare la request `DC-01 – Registrazione interesse (caso positivo)` nella collection **Data Collector API** (versione `homework-3`). Lo scenario tipico prevede i seguenti passi:
 
 1. Verificare che:
 
@@ -2004,7 +2262,7 @@ Una volta configurati gli interessi e avviato il sistema, il **Data Collector** 
 
 Uno scenario tipico di interrogazione tramite Postman è il seguente:
 
-1. Assicurarsi che lo stack Docker sia in esecuzione e che il **Data Collector** abbia avuto il tempo di eseguire almeno un ciclo di raccolta dai servizi OpenSky (secondo la schedulazione configurata).
+1. Assicurarsi che il sistema sia in esecuzione e che il **Data Collector** abbia avuto il tempo di eseguire almeno un ciclo di raccolta dai servizi OpenSky (secondo la schedulazione configurata).
 2. Nella collection **Data Collector API**, selezionare una delle request dedicate alle interrogazioni dei voli, ad esempio:
 
    * `DC-23 – Recupero ultimo volo in arrivo (caso positivo)`;
@@ -2019,53 +2277,203 @@ Uno scenario tipico di interrogazione tramite Postman è il seguente:
 
 Questi scenari Postman permettono di esercitare le funzionalità principali esposte dai microservizi **User Manager** e **Data Collector**, validando il corretto comportamento del sistema nelle operazioni di registrazione utenti, gestione degli interessi con soglie e interrogazione dei dati di volo persi.
 
-## 9. Health Checks, Logs and Basic Diagnostics
+## 9. Monitoring & Metrics (Prometheus)
 
-### 9.1 Verifica della raggiungibilità dei servizi
+### 9.1 Endpoint `/actuator/prometheus` e metriche applicative
+
+Ciascun microservizio che partecipa al monitoring espone l’endpoint HTTP **`/actuator/prometheus`** tramite **Spring Boot Actuator** e **Micrometer Prometheus Registry**.
+
+Nel deployment su Kubernetes, lo scraping è effettuato da **Prometheus** verso i Service interni del namespace `dsbd`, utilizzando **Kubernetes Service Discovery** (role `endpoints`) e una regola di *relabeling* che seleziona i soli Service di interesse.
+
+Nel progetto corrente, Prometheus raccoglie metriche da:
+
+* **`data-collector-service`** (*job*: `data-collector`)
+* **`alert-system-service`** (*job*: `alert-system`)
+* **`alert-notifier-service`** (*job*: `alert-notifier`)
+
+Le metriche sono composte da:
+
+* **metriche tecniche** esposte automaticamente da Actuator/Micrometer (es. JVM, HTTP server, ecc.);
+* **metriche applicative custom** implementate esplicitamente a livello di codice per osservare punti critici della pipeline (OpenSky client, valutazione soglie, consumo notifiche, invio email).
+
+A livello di configurazione, Prometheus utilizza un `scrape_interval` pari a **15s** e un `metrics_path` fissato a **`/actuator/prometheus`** per i job applicativi.
+
+---
+
+### 9.2 Tipologie richieste: COUNTER e GAUGE
+
+Le metriche custom adottano esclusivamente le due tipologie richieste:
+
+* **COUNTER** (*monotonic*, solo incrementale): adatto a conteggi di eventi (richieste, errori, notifiche, fallback). In PromQL, tali metriche vanno tipicamente analizzate tramite funzioni derivate (*rate/increase*) su finestre temporali.
+* **GAUGE** (*istantaneo*, aggiornabile): adatto a rappresentare uno stato o un valore misurato (in questo caso, la durata dell’ultima operazione significativa, espressa in millisecondi).
+
+Metriche **COUNTER** implementate nel progetto:
+
+* `opensky_requests_total`, `opensky_request_errors_total`, `opensky_fallback_total` (*Data Collector*)
+* `alert_system_evaluations_total`, `alert_system_notifications_total` (*Alert System*)
+* `alert_notifier_notifications_consumed_total`, `alert_notifier_notifications_processing_errors_total` (*Alert Notifier*)
+* `email_sent_total`, `email_send_errors_total`, `email_rate_limited_total` (*Alert Notifier*)
+
+Metriche **GAUGE** implementate nel progetto (durate *last operation*, in ms):
+
+* `opensky_last_fetch_duration_ms`
+* `alert_system_last_eval_duration_ms`
+* `alert_notifier_last_processing_duration_ms`
+* `email_last_send_duration_ms`
+
+---
+
+### 9.3 Labeling (service, node) e convenzioni adottate
+
+Per garantire **coerenza e correlazione** tra le serie temporali raccolte, tutte le metriche (tecniche e custom) sono arricchite con due label uniformi:
+
+* **`service`**: identifica il microservizio produttore della metrica.
+* **`node`**: identifica il nodo Kubernetes su cui è schedulato il Pod.
+
+Il labeling è applicato a livello Micrometer tramite `management.metrics.tags`:
+
+* `service` è valorizzata tramite la variabile d’ambiente **`SERVICE_NAME`** (impostata nei manifest dei Deployment).
+* `node` è valorizzata tramite **`NODE_NAME`**, derivata da `spec.nodeName` via `fieldRef`.
+
+Nel file di configurazione di Prometheus, l’opzione **`honor_labels: true`** è attiva per i job applicativi, preservando le label emesse a livello applicativo.
+
+---
+
+### 9.4 Verifica dei target in Prometheus (Status > Targets)
+
+Dopo il deploy dello stack, la verifica primaria consiste nel controllare che Prometheus stia effettuando lo scraping dei target attesi.
+
+1. Rendere disponibile la UI di Prometheus (se non già attivo):
+
+   ```bash
+   kubectl -n dsbd port-forward svc/prometheus 9090:9090
+   ```
+
+2. Accedere a `http://localhost:9090`.
+
+3. Aprire **Status → Targets**.
+
+Nella sezione *Targets* ci si attende di osservare:
+
+* i job **`data-collector`**, **`alert-system`**, **`alert-notifier`** con stato **UP**;
+* target corrispondenti agli endpoint esposti dai rispettivi Service (role `endpoints`).
+
+In caso di target *DOWN*, le verifiche più indicative sono:
+
+* corretta esposizione dell’endpoint `GET /actuator/prometheus` nel Pod (configurazione Actuator);
+* correttezza della selezione del Service tramite `relabel_configs` (match su `__meta_kubernetes_service_name`);
+* raggiungibilità delle porte e disponibilità dell’applicazione (Pod in *Running/Ready*).
+
+---
+
+### 9.5 Query PromQL di riferimento
+
+#### 9.5.1 Query COUNTER (rate/increase)
+
+Esempi di query tipiche per metriche **COUNTER**:
+
+* Rate delle richieste verso OpenSky al secondo (finestra 1m):
+
+  ```promql
+  rate(opensky_requests_total[1m])
+  ```
+
+* Incremento notifiche generate dall’Alert System (finestra 5m):
+
+  ```promql
+  increase(alert_system_notifications_total[5m])
+  ```
+
+* Rate errori di invio email (finestra 5m):
+
+  ```promql
+  rate(email_send_errors_total[5m])
+  ```
+
+#### 9.5.2 Query GAUGE (valori istantanei e aggregazioni)
+
+Esempi di query per metriche **GAUGE**:
+
+* Durata (ms) dell’ultima chiamata OpenSky:
+
+  ```promql
+  opensky_last_fetch_duration_ms
+  ```
+
+* Durata (ms) dell’ultima valutazione soglie:
+
+  ```promql
+  alert_system_last_eval_duration_ms
+  ```
+
+* Massimo della durata di processing notifica (ms) osservato tra i target attivi:
+
+  ```promql
+  max(alert_notifier_last_processing_duration_ms)
+  ```
+
+#### 9.5.3 Query per label (service/node)
+
+Poiché il progetto standardizza le label **`service`** e **`node`**, è possibile filtrare e aggregare in modo uniforme.
+
+* Filtrare le metriche OpenSky prodotte dal solo *Data Collector*:
+
+  ```promql
+  opensky_requests_total{service="data-collector-service"}
+  ```
+
+* Confrontare, per nodo, la rate delle richieste OpenSky:
+
+  ```promql
+  sum by (node) (rate(opensky_requests_total[1m]))
+  ```
+
+* Aggregare, per servizio, gli errori di processing delle notifiche:
+
+  ```promql
+  sum by (service) (rate(alert_notifier_notifications_processing_errors_total[5m]))
+  ```
+
+## 10. Health Checks, Logs and Basic Diagnostics
+
+### 10.1 Verifica della raggiungibilità dei servizi
 
 La prima forma di diagnostica consiste nel verificare che i microservizi siano effettivamente **raggiungibili** e che stiano esponendo le API previste sulle porte attese.
 
-Un controllo preliminare può essere effettuato direttamente dal terminale utilizzando `curl` oppure tramite browser o strumenti come Postman.
+In ambiente Kubernetes (cluster **kind**), l’accesso dall’host avviene tipicamente tramite **port-forward** verso i *Service* (approccio raccomandato), oppure — in alternativa — tramite un *client* esterno configurato sulla porta locale esposta dal port-forward.
 
-* Verifica della raggiungibilità dello *User Manager Service* (esempio esecuzione locale):
+Un controllo preliminare può essere effettuato direttamente dal terminale utilizzando `curl` oppure tramite strumenti come Postman.
 
-  ```bash
-  curl -i http://localhost:8080/
-  ```
-
-* Verifica della raggiungibilità del *Data Collector Service* (esempio esecuzione locale):
+* Verifica della raggiungibilità dell’**API Gateway** (dopo port-forward):
 
   ```bash
-  curl -i http://localhost:8081/
+  curl -i http://localhost:<LOCAL_PORT>/
   ```
 
-La risposta non deve necessariamente contenere un payload specifico; è sufficiente che il server risponda con un codice **2xx** o **3xx** per confermare che il processo sia in ascolto sulla porta indicata. Risposte `5xx` o errori di connessione (ad esempio *connection refused* o *timeout*) indicano un problema a livello di avvio del servizio, configurazione della porta o connettività.
+* Verifica della raggiungibilità dello **User Manager Service** (dopo port-forward):
 
-In ambiente Docker, la verifica avviene analogamente utilizzando il mapping delle porte configurato nel `docker-compose.yml`, ad esempio:
+  ```bash
+  curl -i http://localhost:<LOCAL_PORT>/
+  ```
 
-```bash
-curl -i http://localhost:<HOST_PORT_UMS>/
-curl -i http://localhost:<HOST_PORT_DCS>/
-```
+* Verifica della raggiungibilità del **Data Collector Service** (dopo port-forward):
 
-Oltre ai due microservizi core, nella versione corrente dell'architettura sono presenti ulteriori componenti esposti tramite HTTP, fra cui l'**API Gateway** e i microservizi *Alert System Service* e *Alert Notifier Service*. Per la sola verifica di raggiungibilità si possono utilizzare comandi analoghi basati su `curl` verso le porte pubblicate nel `docker-compose.yml`, ad esempio:
+  ```bash
+  curl -i http://localhost:<LOCAL_PORT>/
+  ```
 
-```bash
-curl -i http://localhost:<HOST_PORT_API_GATEWAY>/
-curl -i http://localhost:<HOST_PORT_ALERT_SYSTEM>/
-curl -i http://localhost:<HOST_PORT_ALERT_NOTIFIER>/
-```
+La risposta non deve necessariamente contenere un payload specifico; è sufficiente che il server risponda con un codice **2xx** o **3xx** per confermare che il processo sia in ascolto sulla porta indicata. Risposte `5xx` o errori di connessione (ad esempio *connection refused* o *timeout*) indicano un problema a livello di avvio del servizio, configurazione della porta o instradamento.
 
-In tutti i casi, una risposta `2xx`/`3xx` o anche un `4xx` coerente con l'endpoint invocato conferma che il container è in esecuzione e che lo stack di rete è correttamente instradato.
+Oltre ai due microservizi core, nella versione estesa dell’architettura sono presenti ulteriori componenti esposti tramite HTTP, fra cui i microservizi **Alert System Service** e **Alert Notifier Service**. Per la sola verifica di raggiungibilità si possono utilizzare comandi analoghi verso i relativi *Service* (sempre mediante port-forward).
 
-#### 9.1.1 Endpoint di health (se presenti) o semplice ping
+#### 10.1.1 Endpoint di health (se presenti) o semplice ping
 
 Se gli **endpoint di health** (ad esempio basati su Spring Boot Actuator) sono abilitati, rappresentano il metodo preferenziale per verificare lo stato interno del servizio.
 
-Esempio di chiamata ad un endpoint di health standard:
+Esempio di chiamata ad un endpoint di health standard (dopo port-forward verso il servizio target):
 
 ```bash
-curl -i http://localhost:8080/actuator/health
+curl -i http://localhost:<LOCAL_PORT>/actuator/health
 ```
 
 Una risposta tipica, in caso di servizio *UP*, può essere del tipo:
@@ -2076,68 +2484,54 @@ Una risposta tipica, in caso di servizio *UP*, può essere del tipo:
 }
 ```
 
-Endpoint analoghi possono essere esposti anche dal *Data Collector Service*, ad esempio:
-
-```bash
-curl -i http://localhost:8081/actuator/health
-```
-
 Se gli endpoint di health non sono disponibili o non risultano abilitati, è possibile utilizzare un **semplice ping applicativo** verso un endpoint REST funzionale noto, ad esempio una richiesta di lettura con parametri controllati:
 
-* per lo *User Manager Service*:
+* per lo **User Manager Service**:
 
   ```bash
-  curl -i "http://localhost:8080/api/users/{emailDiTest}"
+  curl -i "http://localhost:<LOCAL_PORT>/api/users/{emailDiTest}"
   ```
 
-* per il *Data Collector Service*:
+* per il **Data Collector Service**:
 
   ```bash
-  curl -i "http://localhost:8081/api/interests?userEmail={emailDiTest}"
+  curl -i "http://localhost:<LOCAL_PORT>/api/interests?userEmail={emailDiTest}"
   ```
 
 In questo caso, anche una risposta `4xx` (ad esempio `404 Not Found` per utente inesistente) può essere considerata un segnale positivo, in quanto indica che il servizio è attivo e sta elaborando correttamente la richiesta.
 
-### 9.2 Log dei microservizi
+---
 
-La seconda fonte di diagnostica è rappresentata dai **log applicativi** prodotti dai microservizi. In ambiente Docker, ogni container instrada l’output standard verso il demone Docker, rendendo possibile la consultazione centralizzata dei log via `docker compose logs`.
+### 10.2 Log dei microservizi
 
-#### 9.2.1 Accesso ai log via Docker (`docker compose logs`)
+La seconda fonte di diagnostica è rappresentata dai **log applicativi** prodotti dai microservizi. In ambiente Kubernetes, i log dei container sono accessibili tramite `kubectl logs`.
 
-Per visualizzare i log di tutti i servizi definiti nello stack:
+#### 10.2.1 Accesso ai log via Kubernetes (`kubectl logs`)
+
+Per consultare i log di un microservizio, è possibile riferirsi direttamente al relativo *Deployment*:
 
 ```bash
-cd docker
-docker compose logs -f
+kubectl -n dsbd logs -f deploy/user-manager-service
+kubectl -n dsbd logs -f deploy/data-collector-service
+kubectl -n dsbd logs -f deploy/alert-system-service
+kubectl -n dsbd logs -f deploy/alert-notifier-service
 ```
 
 Il flag `-f` (*follow*) consente di seguire in tempo reale l’evoluzione dei log, utile soprattutto durante la fase di avvio o mentre si eseguono chiamate di test.
 
-Per concentrarsi sui log di un singolo servizio è possibile specificarne il nome, ad esempio:
+Se un Pod va in crash e viene riavviato, può essere utile recuperare i log del tentativo precedente:
 
 ```bash
-docker compose logs -f user-manager-service
+kubectl -n dsbd logs pod/<POD_NAME> --previous
 ```
 
-o, in alternativa:
+In presenza di più container nello stesso Pod, è possibile specificare il container:
 
 ```bash
-docker compose logs -f data-collector-service
+kubectl -n dsbd logs -f pod/<POD_NAME> -c <CONTAINER_NAME>
 ```
 
-In questo modo si possono isolare più facilmente gli errori relativi a un singolo microservizio (problemi di connessione al database, errori nelle chiamate alle OpenSky Network API, eccezioni applicative, ecc.).
-
-Per i servizi introdotti nella pipeline di alerting è possibile utilizzare comandi analoghi, ad esempio:
-
-```bash
-docker compose logs -f alert-system-service
-
-docker compose logs -f alert-notifier-service
-```
-
-In questo modo è possibile correlare i log di produzione e consumo dei messaggi Kafka con gli eventi applicativi (rilevamento delle violazioni di soglia e invio delle notifiche email).
-
-#### 9.2.2 Principali messaggi informativi/di errore da tenere d’occhio
+#### 10.2.2 Principali messaggi informativi/di errore da tenere d’occhio
 
 Tra i messaggi più rilevanti per la diagnostica si segnalano:
 
@@ -2146,26 +2540,24 @@ Tra i messaggi più rilevanti per la diagnostica si segnalano:
 * i log di **connessione al database**, che evidenziano errori di autenticazione, indisponibilità dell’host o problemi di rete;
 * i log relativi alle **invocazioni verso OpenSky**, con particolare attenzione allo stato delle risposte (codici HTTP, messaggi di errore, time‑out);
 * eventuali **stack trace** di eccezioni non gestite, che possono fornire indicazioni preziose sulla causa di errori logici o di configurazione.
-
-Nella versione estesa del sistema assumono particolare rilevanza anche:
-
 * i log del **producer Kafka** nel *Data Collector Service*, che confermano la pubblicazione degli eventi di aggiornamento delle finestre temporali verso il topic di input dell’Alert System;
-* i log di **consumo ed elaborazione** nel *Alert System Service*, che riportano la ricezione degli eventi, il calcolo delle statistiche di ritardo e l’eventuale generazione delle notifiche di superamento soglia;
-* i log relativi all’**invio delle notifiche e‑mail** nel *Alert Notifier Service*, che esplicitano l’indirizzo del destinatario, l’oggetto del messaggio e l’esito della consegna verso il server SMTP configurato.
+* i log di **consumo ed elaborazione** nell’*Alert System Service*, che riportano la ricezione degli eventi e l’eventuale generazione delle notifiche di superamento soglia;
+* i log relativi all’**invio delle notifiche e‑mail** nell’*Alert Notifier Service*, che esplicitano l’indirizzo del destinatario, l’oggetto del messaggio e l’esito della consegna verso il server SMTP configurato.
 
-### 9.3 Diagnostica del database
+---
 
-La diagnostica del database PostgreSQL è utile per verificare che gli **schemi applicativi** siano stati creati correttamente e che le tabelle principali vengano popolati come previsto a seguito dell’esecuzione dei microservizi.
+### 10.3 Diagnostica del database
 
-#### 9.3.1 Accesso a PostgreSQL (via CLI o client esterno)
+La diagnostica del database PostgreSQL è utile per verificare che gli **schemi applicativi** siano stati creati correttamente e che le tabelle principali vengano popolate come previsto a seguito dell’esecuzione dei microservizi.
 
-Per accedere al database in ambiente Docker è possibile utilizzare la CLI `psql` all’interno del container PostgreSQL oppure un client esterno connesso alla porta esposta sul host.
+#### 10.3.1 Accesso a PostgreSQL (via CLI o client esterno)
 
-Esempio di accesso via CLI dal container:
+Per accedere a PostgreSQL in ambiente Kubernetes, sono disponibili due modalità principali:
+
+1. **Accesso via CLI all’interno del Pod** (approccio diretto, nessuna esposizione verso l’host):
 
 ```bash
-cd docker
-docker compose exec postgres psql -U ${POSTGRES_USER} -d ${USER_DB_NAME}
+kubectl -n dsbd exec -it deploy/postgres -- psql -U <POSTGRES_USER> -d <USER_DB_NAME>
 ```
 
 Una volta connessi al *User DB* (`userdb`), è possibile elencare le tabelle disponibili:
@@ -2177,9 +2569,16 @@ Una volta connessi al *User DB* (`userdb`), è possibile elencare le tabelle dis
 Analogamente, per connettersi al *Data DB* (`datadb`):
 
 ```bash
-cd docker
-docker compose exec postgres psql -U ${POSTGRES_USER} -d ${DATA_DB_NAME}
+kubectl -n dsbd exec -it deploy/postgres -- psql -U <POSTGRES_USER> -d <DATA_DB_NAME>
 ```
+
+2. **Accesso da un client esterno** (ad esempio estensione DB su VS Code) tramite **port-forward** del *Service* PostgreSQL:
+
+```bash
+kubectl -n dsbd port-forward svc/postgres 15432:5432
+```
+
+A questo punto, il database è raggiungibile dall’host su `localhost:15432` con le credenziali configurate (utente/password) e i due database logici (`userdb`, `datadb`).
 
 All’interno di ciascun database è possibile eseguire query di verifica sul contenuto delle tabelle principali, ad esempio:
 
@@ -2192,12 +2591,12 @@ SELECT * FROM flight_records;
 
 Queste interrogazioni permettono di verificare se gli utenti, gli aeroporti, gli interessi e i record di volo risultano correttamente inseriti in seguito alle chiamate effettuate tramite le API esposte dai microservizi.
 
-#### 9.3.2 Verifica della creazione automatica di schemi e tabelle (Flyway)
+#### 10.3.2 Verifica della creazione automatica di schemi e tabelle (Flyway)
 
 La creazione e l’evoluzione degli schemi del database sono gestite tramite **Flyway**, configurato all’interno dei microservizi. Le migrazioni vengono applicate automaticamente all’avvio dei servizi:
 
-* lo *User Manager Service* applica le migrazioni relative allo schema utenti nel database `userdb`;
-* il *Data Collector Service* applica le migrazioni relative a aeroporti, interessi e voli nel database `datadb`.
+* lo **User Manager Service** applica le migrazioni relative allo schema utenti nel database `userdb`;
+* il **Data Collector Service** applica le migrazioni relative a aeroporti, interessi e voli nel database `datadb`.
 
 Nei log di avvio dei microservizi è possibile individuare i messaggi di Flyway che indicano l’esecuzione delle migrazioni, ad esempio:
 
@@ -2210,68 +2609,90 @@ Successfully applied n migrations to schema "public" (execution time ...)
 
 In caso di errori (script non applicabili, conflitti di versionamento, problemi di permessi), Flyway riporterà dettagli specifici nei log, consentendo di intervenire rapidamente sulla correzione degli script o sulla configurazione del database.
 
-Una ulteriore verifica può essere effettuata confrontando le tabelle e le colonne presenti nel database con quanto previsto dagli script di migrazione (file `Vx__*.sql` e/o migrazioni Java), ad esempio controllando che siano presenti le tabelle `users`, `airports`, `user_airport_interest`, `flight_records` con le relative chiavi primarie, chiavi esterne e vincoli di unicità.
+Una ulteriore verifica può essere effettuata controllando la tabella `flyway_schema_history` all’interno dei database logici, per confermare l’avanzamento della versione applicata.
 
-### 9.4 Diagnostica di Kafka e del sistema di posta
+---
 
-La pipeline di alerting introdotta nella versione corrente si basa sull’utilizzo congiunto del **broker Kafka** e del sistema di posta SMTP. Una diagnostica puntuale di questi componenti consente di verificare il corretto flusso degli eventi di superamento soglia e la consegna delle relative notifiche email.
+### 10.4 Diagnostica di Kafka, Mailtrap e Prometheus
 
-#### 9.4.1 Verifica dei topic e dei messaggi tramite Kafka UI
+La diagnostica dei componenti infrastrutturali consente di validare il corretto flusso degli eventi (Kafka), la consegna delle notifiche (Mailtrap) e la raccolta delle metriche (Prometheus).
 
-Il broker Kafka è affiancato da una **Kafka UI** esposta come servizio Docker dedicato (`kafka-ui`), che permette di ispezionare cluster, topic, partizioni e consumer group tramite interfaccia web.
+#### 10.4.1 Verifica dei topic e dei messaggi tramite Kafka UI
 
-Per prima cosa è opportuno verificare che i container coinvolti siano in esecuzione:
+Il broker Kafka è affiancato da una **Kafka UI**, che permette di ispezionare cluster, topic, partizioni e consumer group tramite interfaccia web.
 
-```bash
-cd docker
-docker compose ps kafka
+1. Verificare che i Pod infrastrutturali siano in esecuzione:
 
-docker compose ps zookeeper
+   ```bash
+   kubectl -n dsbd get pods -l app=zookeeper
+   kubectl -n dsbd get pods -l app=kafka
+   kubectl -n dsbd get pods -l app=kafka-ui
+   ```
 
-docker compose ps kafka-ui
-```
+2. Esporre temporaneamente la Kafka UI tramite **port-forward**:
 
-La colonna delle *ports* nel comando `docker compose ps kafka-ui` indica la porta host su cui è pubblicata la Kafka UI (ad esempio `localhost:<HOST_PORT_KAFKA_UI>`). Una volta individuata la porta, l’interfaccia è raggiungibile da browser all’indirizzo:
+   ```bash
+   kubectl -n dsbd port-forward svc/kafka-ui 8085:8080
+   ```
 
-```text
-http://localhost:<HOST_PORT_KAFKA_UI>
-```
+3. Raggiungere l’interfaccia da browser all’indirizzo `http://localhost:8085` e:
 
-Dalla dashboard è possibile:
+   * verificare l’elenco dei **topic** configurati (in particolare quelli coinvolti nella pipeline di alerting);
+   * controllare lo stato dei **consumer group** associati ai servizi;
+   * ispezionare i messaggi più recenti per verificare che il payload JSON corrisponda alla struttura attesa.
 
-* verificare l’elenco dei **topic** configurati, inclusi il topic di input su cui il *Data Collector Service* pubblica gli eventi di aggiornamento delle finestre temporali e il topic di output su cui l’*Alert System Service* pubblica le notifiche di superamento soglia destinate all’*Alert Notifier Service*;
-* controllare, per ciascun topic, il numero di messaggi presenti, la ripartizione per partizione e lo stato dei **consumer group** associati (in particolare i consumer utilizzati dai servizi *Alert System* e *Alert Notifier*);
-* ispezionare il contenuto dei messaggi più recenti per verificare che il payload JSON corrisponda alla struttura attesa (ad esempio eventi di tipo `FlightCollectionWindowUpdateEvent`, `ThresholdBreachDetectionEvent`, `ThresholdBreachNotificationEvent`).
+Durante l’esecuzione di scenari di test è possibile osservare in tempo quasi reale l’aumento del numero di messaggi sui topic coinvolti e l’avanzamento degli offset dei consumer.
 
-Durante l’esecuzione di scenari di test è possibile osservare in tempo quasi reale l’aumento del numero di messaggi sui topic coinvolti e l’avanzamento degli offset dei consumer. Se i messaggi vengono prodotti ma non consumati, è probabile che vi sia un problema nella configurazione dei listener Kafka o nell’avvio dei microservizi *Alert System* e *Alert Notifier*; viceversa, se i topic rimangono vuoti anche dopo l’esecuzione di chiamate che dovrebbero generare eventi, conviene verificare la parte di integrazione Kafka del *Data Collector Service*.
+#### 10.4.2 Verifica dell’invio email tramite Mailtrap
 
-#### 9.4.2 Verifica dell’invio email tramite Mailtrap
+L’invio delle notifiche email è gestito dal microservizio **Alert Notifier**, che utilizza un server SMTP esterno (Mailtrap) configurato tramite variabili d’ambiente `MAIL_*`.
 
-L’invio delle notifiche email è gestito dal microservizio **Alert Notifier**, che utilizza un server SMTP esterno (Mailtrap) configurato tramite le variabili d’ambiente `MAIL_*`. Per verificare il corretto funzionamento di questa integrazione sono consigliati i seguenti passaggi:
+Per verificare il corretto funzionamento dell’integrazione:
 
-1. Accedere all’account Mailtrap utilizzato per il progetto e selezionare la **Inbox** dedicata alle notifiche generate dal sistema.
-2. Eseguire uno scenario applicativo che porti alla generazione di una violazione di soglia (ad esempio configurando un interesse con soglia di ritardo particolarmente bassa e inizializzando opportunamente i dati di volo).
-3. Monitorare i log del microservizio *Alert Notifier* per verificare che venga emesso un messaggio di invio email verso il destinatario atteso, con indicazione dell’host SMTP, della porta e dell’esito della consegna.
-4. Verificare, all’interno della Inbox Mailtrap, la presenza di uno o più messaggi corrispondenti alla violazione di soglia, controllando:
+1. Accedere all’account Mailtrap utilizzato e selezionare la **Inbox** dedicata alle notifiche.
 
-   * il **mittente** configurato nel sistema di notifica;
-   * il **destinatario** (indirizzo email associato all’utente che ha configurato l’interesse);
-   * l’**oggetto** del messaggio, che riassume la natura della violazione (es. ritardo superiore alla soglia configurata);
-   * il **corpo** dell’email, che include i dettagli del volo e i valori di soglia coinvolti.
+2. Eseguire uno scenario applicativo che porti alla generazione di una notifica (superamento soglia).
 
-Se le email non risultano recapitate nella Inbox Mailtrap, è opportuno:
+3. Monitorare i log dell’**Alert Notifier Service** per verificare l’esito dell’invio:
 
-* verificare che le variabili `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH` e `MAIL_SMTP_STARTTLS_ENABLE` siano correttamente valorizzate nel file `docker/env/services.env` e propagate al container dell’*Alert Notifier Service*;
-* controllare eventuali errori nei log dell’Alert Notifier relativi alla connessione SMTP (host non raggiungibile, credenziali non valide, problemi di TLS);
-* assicurarsi che i messaggi Kafka di notifica siano effettivamente consumati dal microservizio, utilizzando congiuntamente i log applicativi e la Kafka UI descritta nel paragrafo precedente.
+   ```bash
+   kubectl -n dsbd logs -f deploy/alert-notifier-service
+   ```
 
-## 10. Troubleshooting
+4. Verificare, all’interno della Inbox Mailtrap, la presenza del messaggio controllando mittente, destinatario, oggetto e corpo.
 
-### 10.1 Problemi comuni in fase di build
+Se le email non risultano recapitate, è opportuno verificare che i parametri SMTP siano coerenti e che il microservizio stia effettivamente consumando i messaggi Kafka di notifica (correlando log applicativi e Kafka UI).
+
+#### 10.4.3 Verifica scraping e metriche su Prometheus
+
+Prometheus consente di verificare che le metriche esposte dai microservizi strumentati vengano correttamente raccolte (*scraped*) e rese interrogabili via PromQL.
+
+1. Verificare che Prometheus sia in esecuzione:
+
+   ```bash
+   kubectl -n dsbd get pods -l app=prometheus
+   ```
+
+2. Esporre temporaneamente Prometheus tramite **port-forward**:
+
+   ```bash
+   kubectl -n dsbd port-forward svc/prometheus 9090:9090
+   ```
+
+3. Accedere all’interfaccia web su `http://localhost:9090` e:
+
+   * aprire **Status → Targets** e verificare che i target risultino **UP**;
+   * eseguire una query PromQL di base (ad esempio `up`) per controllare la disponibilità delle serie.
+
+In presenza di target `DOWN`, è consigliato verificare (i) la corretta esposizione dell’endpoint `/actuator/prometheus` sul servizio target e (ii) la coerenza tra porte/Service/endpoint utilizzati nella configurazione di `prometheus.yml`.
+
+## 11. Troubleshooting
+
+### 11.1 Problemi comuni in fase di build
 
 La fase di build può fallire per prerequisiti mancanti o per errori nella costruzione delle immagini Docker. Questa sezione elenca i casi più frequenti e le azioni consigliate per risolverli.
 
-#### 10.1.1 Mancanza di JDK/Maven (in build locale)
+#### 11.1.1 Mancanza di JDK/Maven (in build locale)
 
 Quando si esegue la build **senza Docker** (ad esempio con `mvn clean package` o `mvn spring-boot:run`), sono necessari un **JDK** supportato e **Apache Maven** correttamente installati e presenti nel `PATH`.
 
@@ -2317,171 +2738,284 @@ Quando si esegue la build **senza Docker** (ad esempio con `mvn clean package` o
 
 4. Se dopo l’installazione persistono problemi, verificare l’eventuale presenza di più versioni di Java o Maven e assicurarsi che quella attivata sia coerente con i requisiti del progetto.
 
-#### 10.1.2 Errori di build delle immagini Docker
+#### 11.1.2 Errori di build delle immagini Docker
 
-La build tramite Docker Compose (`docker compose build` o `docker compose up --build`) può fallire per diversi motivi: problemi di rete nel download delle dipendenze, errori di compilazione del codice, configurazioni errate dei `Dockerfile`.
+La costruzione delle immagini avviene tramite **`docker build`** (BuildKit) sui *build context* dei singoli microservizi, tipicamente orchestrata dagli script presenti in `scripts/` (es. `build-images.sh` e `build-images.ps1`). **Docker Compose non è utilizzato** per la fase di build: ogni servizio viene buildato come unità autonoma a partire dal relativo `Dockerfile`.
+
+**Sintomi tipici**
+
+* Errori generici di BuildKit / build graph (es. `failed to solve: ...`).
+* Errori sul contesto di build (es. `COPY failed: file not found in build context`).
+* Errori Maven nello *stage* di build (es. dipendenze non risolvibili, timeout verso repository, certificati/proxy).
+* Saturazione disco o cache Docker (es. `no space left on device`).
+
+**Verifiche e rimedi**
+
+1. Verificare che Docker sia avviato e operativo:
+
+   ```bash
+   docker version
+   ```
+
+2. Eseguire la build **tramite gli script di progetto** dalla root della repository (consigliato, perché uniforma naming e tag):
+
+   *Linux/macOS (bash)*
+
+   ```bash
+   ./scripts/build-images.sh dev
+   ```
+
+   *Windows (PowerShell)*
+
+   ```powershell
+   ./scripts/build-images.ps1 -Tag dev
+   ```
+
+3. Se l’errore non è immediatamente identificabile, isolare la build su **un singolo servizio** per circoscrivere la causa (path, dipendenze, Dockerfile):
+
+   ```bash
+   docker build -t dsbd/user-manager-service:dev ./user-manager-service
+   ```
+
+   Ripetere per gli altri servizi aggiornando *image name* e *context directory*.
+
+4. Verificare che le immagini risultino presenti in locale e con il tag atteso:
+
+   ```bash
+   docker images | grep dsbd/
+   ```
+
+5. In caso di errori sul contesto (`COPY failed` / file mancanti), verificare:
+
+   * che il *build context* (ultimo argomento di `docker build`) punti alla directory corretta;
+   * che i file richiesti dal `Dockerfile` esistano realmente (es. `pom.xml`, `src/`, `target/` se previsto);
+   * l’assenza di regole `.dockerignore` che escludano file necessari;
+   * la coerenza dei path usati nei `COPY` rispetto alla struttura del repository.
+
+6. In caso di errori Maven nello stage di build, distinguere:
+
+   * **problema applicativo** (compilazione/test): eseguire prima una build locale del servizio e risolvere gli errori:
+
+     ```bash
+     cd user-manager-service
+     mvn clean package
+     ```
+
+   * **problema di rete/ambiente** (download dipendenze): verificare connettività, DNS, proxy aziendali/universitari e certificati.
+
+7. Se si sospettano layer incoerenti o cache “sporca”, ripetere la build pulendo selettivamente le risorse di build (operazione potenzialmente distruttiva):
+
+   ```bash
+   docker builder prune -f
+   docker system prune -f
+   ```
+
+#### 11.1.3 Immagini non disponibili nel cluster kind (mancato `kind load`)
+
+Quando lo stack viene eseguito su un cluster *kind*, le immagini Docker costruite localmente **non** sono automaticamente disponibili all’interno dei nodi del cluster. In assenza di caricamento esplicito, i Pod possono rimanere in stato `ImagePullBackOff` / `ErrImagePull` anche se l’immagine è presente sul Docker daemon dell’host.
 
 *Sintomi tipici*
 
-* Errori durante la fase `mvn clean package` all’interno dello stage di build:
+* Pod in errore con eventi simili a:
 
   ```text
-  [ERROR] Failed to execute goal ... on project user-manager-service
-  ```
-
-* Errori nel recupero delle dipendenze Maven (timeout, errori DNS):
-
-  ```text
-  Could not resolve dependencies for project ...
-  ```
-
-* Errori legati al `Dockerfile` (path errati, file mancanti):
-
-  ```text
-  COPY failed: file not found in build context
+  Failed to pull image "...": rpc error: code = NotFound
+  ImagePullBackOff
   ```
 
 *Verifiche e rimedi*
 
-1. Verificare che la build Maven locale (fuori da Docker) vada a buon fine per ciascun microservizio:
+1. Identificare il nome esatto dell’immagine referenziata dal Pod:
 
    ```bash
-   cd user-manager-service
-   mvn clean package
-
-   cd ../data-collector-service
-   mvn clean package
+   kubectl -n dsbd describe pod <pod-name>
    ```
 
-   Se la build locale fallisce, risolvere prima gli errori riportati (problemi di compilazione, test falliti, dipendenze mancanti).
+   Nella sezione **Containers** verificare il campo **Image** (tag incluso).
 
-2. Controllare che il contesto di build indicato nel `docker-compose.yml` corrisponda alla radice di ciascun microservizio e che i percorsi nei `Dockerfile` (ad esempio `COPY pom.xml`, `COPY src/`) siano coerenti con la struttura effettiva del progetto.
-
-3. In caso di errori di rete nel download delle dipendenze Maven durante la build Docker, verificare:
-
-   * la connettività verso Internet dal nodo che esegue Docker;
-   * eventuali proxy o firewall che possano bloccare l’accesso ai repository Maven pubblici.
-
-4. Se Docker riutilizza una cache di build non coerente, può essere utile forzare la ricostruzione senza cache:
+2. Verificare che l’immagine esista sul Docker daemon locale:
 
    ```bash
-   docker compose build --no-cache
+   docker images
    ```
 
-5. In presenza di messaggi di errore generici, eseguire la build in modo verboso (ad esempio aggiungendo `-X` a Maven nello stage di build) per ottenere maggiori dettagli.
+3. Caricare l’immagine nel cluster *kind* (usando il nome cluster effettivo):
+
+   ```bash
+   kind get clusters
+   kind load docker-image <image-name>:<tag> --name <cluster-name>
+   ```
+
+4. Se il Pod continua a non avviarsi, forzare la ricreazione (ad esempio riavviando il Deployment):
+
+   ```bash
+   kubectl -n dsbd rollout restart deploy/<deployment-name>
+   ```
+
+5. Verificare che il manifest Kubernetes utilizzi il tag corretto e una `imagePullPolicy` coerente (in genere `IfNotPresent` per immagini caricate in *kind*).
 
 ---
 
-### 10.2 Problemi comuni in fase di run
+### 11.2 Problemi comuni in fase di run
 
-Una volta completata la build, la fase di esecuzione può essere ostacolata da problemi legati al database, alla connettività tra servizi o alle integrazioni esterne.
+Una volta completata la build e applicati i manifest Kubernetes, la fase di esecuzione può essere ostacolata da problemi legati al lifecycle dei Pod, alla configurazione (ConfigMap/Secret), alla connettività tra servizi o alle integrazioni esterne.
 
-#### 10.2.1 Il database non si avvia correttamente
+#### 11.2.1 Pod in CrashLoopBackOff / ConfigMap-Secret mancanti
 
 *Sintomi tipici*
 
-* Il container PostgreSQL non risulta in stato `running` dopo `docker compose up`:
-
-  ```bash
-  docker compose ps
-  ```
-
-  mostra il servizio `postgres` con stato `exited` o `unhealthy`.
-
-* I log del container mostrano errori in fase di bootstrap, ad esempio:
+* Uno o più Pod risultano in stato `CrashLoopBackOff`, `Error` oppure non completano la fase di avvio (`Init:...`).
+* In `Events` compaiono messaggi come:
 
   ```text
-  database files are incompatible with server
-  ```
-
-  oppure
-
-  ```text
-  FATAL:  password authentication failed for user "flight_monitor"
+  configmap "..." not found
+  secret "..." not found
   ```
 
 *Verifiche e rimedi*
 
-1. Controllare i log del container PostgreSQL:
+1. Identificare rapidamente i componenti in errore:
 
    ```bash
-   cd docker
-   docker compose logs postgres
+   kubectl -n dsbd get pods
    ```
 
-   Identificare eventuali messaggi di errore relativi a:
-
-   * credenziali errate (`POSTGRES_USER`, `POSTGRES_PASSWORD`);
-   * conflitti con dati preesistenti nei volumi;
-   * errori negli script di inizializzazione.
-
-2. Verificare che le variabili d’ambiente in `postgres.env` siano coerenti con quelle utilizzate dai microservizi (`services.env`), in particolare utente, password e nomi dei database logici.
-
-3. In caso di problemi legati a dati corrotti o a modifiche incompatibili della configurazione, può essere necessario rimuovere i volumi associati al database (attenzione: questa operazione **cancella tutti i dati persistenti**):
+2. Ispezionare il Pod per individuare la causa (eventi e dettaglio container):
 
    ```bash
-   docker compose down -v
-   docker compose up -d postgres
+   kubectl -n dsbd describe pod <pod-name>
    ```
 
-4. Verificare che la porta host configurata per PostgreSQL non sia già occupata da un’installazione locale del database o da altri servizi. In caso di conflitto, adeguare il port mapping nel `docker-compose.yml` o fermare il servizio in conflitto.
+3. Verificare l’esistenza delle risorse di configurazione nello stesso namespace:
 
-#### 10.2.2 I servizi non riescono a connettersi a PostgreSQL
+   ```bash
+   kubectl -n dsbd get configmap
+   kubectl -n dsbd get secret
+   ```
+
+4. Se una risorsa risulta mancante, riapplicare i manifest (o la kustomization) e controllare eventuali errori di apply:
+
+   ```bash
+   kubectl apply -k k8s/
+   ```
+
+5. In caso di chiavi errate (ad esempio `configMapKeyRef` / `secretKeyRef` che puntano a key inesistenti), correggere i manifest e riavviare i Pod:
+
+   ```bash
+   kubectl -n dsbd rollout restart deploy/<deployment-name>
+   ```
+
+#### 11.2.2 Il database non si avvia correttamente
 
 *Sintomi tipici*
 
-* Nei log dei microservizi compaiono errori di tipo:
-
-  ```text
-  org.postgresql.util.PSQLException: Connection refused
-  ```
-
-  oppure
-
-  ```text
-  Connection to postgres:5432 refused
-  ```
-
-* Le applicazioni non completano la fase di avvio e si arrestano con errori legati al datasource.
+* Il Pod di PostgreSQL non entra in stato `Running` oppure risulta `CrashLoopBackOff`.
+* Le applicazioni falliscono in bootstrap con errori di connessione JDBC e conseguenti retry.
 
 *Verifiche e rimedi*
 
-1. Verificare che il container PostgreSQL sia effettivamente in esecuzione e in stato `healthy`:
+1. Verificare lo stato del Pod e gli eventuali restart:
 
    ```bash
-   docker compose ps
+   kubectl -n dsbd get pods
    ```
 
-2. Controllare che il nome host del database utilizzato dai microservizi (`DB_HOST`) sia coerente con il nome del servizio nel `docker-compose.yml` (ad esempio `postgres`). In un ambiente Docker, non deve essere utilizzato `localhost` come host del database all’interno dei container.
+2. Analizzare i log del database:
 
-3. Verificare che **porta**, **utente**, **password** e **nome del database** coincidano tra i file `.env` e le property Spring Boot (per i profili `docker` o equivalenti).
+   ```bash
+   kubectl -n dsbd logs -f deploy/postgres
+   ```
 
-4. Se i microservizi vengono eseguiti in locale contro un database Dockerizzato, assicurarsi di aver adattato il `DB_HOST` a `localhost` e che il port mapping (`5432:5432` o equivalente) sia correttamente configurato.
+3. Se il problema riguarda volumi o permessi (ad esempio mount non eseguito, path non valido), ispezionare la descrizione del Pod e le `Events`:
 
-5. In caso di errori di autenticazione (`password authentication failed`), controllare che l’utente indicato (`DB_USERNAME`) esista effettivamente in PostgreSQL e che la password impostata in `services.env` coincida con quella di `postgres.env`.
+   ```bash
+   kubectl -n dsbd describe pod <postgres-pod>
+   ```
 
-#### 10.2.3 Errori di autenticazione verso OpenSky
+4. Verificare che le variabili critiche (es. password, database iniziali) siano presenti e correttamente iniettate tramite ConfigMap/Secret.
+
+#### 11.2.3 I servizi non riescono a connettersi a PostgreSQL
 
 *Sintomi tipici*
 
-* Nei log del *Data Collector Service* compaiono errori durante l’ottenimento del token OAuth2, ad esempio:
+* Nei log dei microservizi compaiono errori del tipo:
 
   ```text
-  401 Unauthorized
-  invalid_client
+  Connection refused
+  could not connect to server
+  timeout expired
   ```
-
-  oppure
-
-  ```text
-  403 Forbidden
-  ```
-
-* Le richieste alle OpenSky Network API falliscono sistematicamente e lo scheduler non riesce a popolare la tabella `flight_records`.
 
 *Verifiche e rimedi*
 
-1. Verificare che le variabili d’ambiente `OPEN_SKY_CLIENT_ID` e `OPEN_SKY_CLIENT_SECRET` siano impostate con valori reali e non con placeholder (ad esempio `your_client_id`).
+1. Verificare che il Service del database esista e che esponga la porta attesa:
+
+   ```bash
+   kubectl -n dsbd get svc
+   kubectl -n dsbd get endpoints postgres
+   ```
+
+2. Verificare che gli hostname/URL usati dai microservizi puntino al Service Kubernetes (tipicamente `postgres` o `postgres.<namespace>.svc`) e non a `localhost`.
+
+3. Eseguire un check di connettività dal Pod del microservizio verso il database (se l’immagine contiene strumenti minimi):
+
+   ```bash
+   kubectl -n dsbd exec -it deploy/user-manager-service -- sh
+   # all'interno del Pod:
+   # nc -vz postgres 5432
+   ```
+
+4. Se il database è `Running` ma non accetta connessioni, verificare:
+
+   * credenziali e DB logici (user/db) coerenti con la configurazione;
+   * migrazioni Flyway e permessi utente;
+   * readiness del Pod PostgreSQL (eventuale delay di inizializzazione).
+
+#### 11.2.4 Problemi di connessione a Kafka
+
+*Sintomi tipici*
+
+* I microservizi producer/consumer non riescono a connettersi al broker (`bootstrap.servers`), con errori nei log relativi a `org.apache.kafka`.
+* Kafka UI mostra consumer group inattivi o topic non popolati.
+
+*Verifiche e rimedi*
+
+1. Verificare lo stato dei Pod infrastrutturali:
+
+   ```bash
+   kubectl -n dsbd get pods
+   ```
+
+   In particolare, controllare che **Zookeeper** e **Kafka** risultino `Running`.
+
+2. Controllare i log del broker Kafka:
+
+   ```bash
+   kubectl -n dsbd logs -f deploy/kafka
+   ```
+
+3. Verificare che i microservizi utilizzino come bootstrap server il Service Kubernetes del broker (ad esempio `kafka:9092`) e non indirizzi localhost.
+
+4. Se Kafka UI è raggiungibile ma non elenca i topic attesi, verificare:
+
+   * la configurazione del broker (listener/advertised listeners coerenti con il DNS interno);
+   * eventuali errori di creazione automatica topic;
+   * la presenza di errori applicativi che impediscono la produzione di messaggi.
+
+#### 11.2.5 Errori di autenticazione verso OpenSky
+
+*Sintomi tipici*
+
+* Il *Data Collector Service* non riesce a ottenere un token OAuth2 o riceve risposte `401/403`.
+* Nei log compaiono errori in fase di token request oppure durante le chiamate alle API.
+
+*Verifiche e rimedi*
+
+1. Verificare che le credenziali (`OPEN_SKY_CLIENT_ID`, `OPEN_SKY_CLIENT_SECRET`) siano state inserite nei Secret e siano effettivamente iniettate nel Pod:
+
+   ```bash
+   kubectl -n dsbd exec -it deploy/data-collector-service -- printenv | grep OPEN_SKY
+   ```
 
 2. Controllare che gli endpoint configurati (`OPEN_SKY_AUTH_BASE_URL`, `OPEN_SKY_API_BASE_URL`) siano corretti e aggiornati rispetto alla documentazione ufficiale di OpenSky.
 
@@ -2491,63 +3025,16 @@ Una volta completata la build, la fase di esecuzione può essere ostacolata da p
 
 5. In presenza di errori intermittenti dovuti a problemi di rete o di disponibilità del servizio OpenSky, valutare l’introduzione di meccanismi di retry e backoff (se non già presenti) o eseguire nuovamente il sistema in un momento successivo.
 
-#### 10.2.4 Problemi di connessione a Kafka
+#### 11.2.6 Errori SMTP e mancato recapito delle email
 
 *Sintomi tipici*
 
-* Nei log di *Alert System* o *Alert Notifier* compaiono errori del tipo:
-
-  ```text
-  org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after ...
-  ```
-
-  oppure
-
-  ```text
-  org.apache.kafka.common.errors.BrokerNotAvailableException
-  ```
-
-* Gli eventi di *threshold breach* non vengono consumati da *Alert Notifier* e non vengono inviate email.
-
-*Verifiche e rimedi*
-
-1. Verificare che i container del broker Kafka e, se previsto, di Zookeeper siano in stato `running` o `healthy`:
-
-   ```bash
-   cd docker
-   docker compose ps
-   ```
-
-2. Controllare che la variabile d’ambiente `KAFKA_BOOTSTRAP_SERVERS` (o equivalente) sia coerente con il nome del servizio Kafka definito in `docker-compose.yml` (ad esempio `kafka:9092`) e che non faccia riferimento a `localhost` dal punto di vista dei container.
-
-3. Verificare che i topic necessari (ad esempio il topic dedicato agli eventi di notifica) siano stati creati correttamente. In presenza di Kafka UI, controllare la sezione *Topics* e accertarsi che:
-
-   * il topic esista;
-   * partizioni e replication factor siano compatibili con la configurazione del cluster.
-
-4. In caso di errori sporadici di connessione, verificare eventuali problemi di rete tra i container (ad esempio conflitti sulla network Docker) e considerare un riavvio selettivo di Kafka, Alert System e Alert Notifier:
-
-   ```bash
-   docker compose restart kafka alert-system-service alert-notifier-service
-   ```
-
-#### 10.2.5 Errori SMTP e mancato recapito delle email
-
-*Sintomi tipici*
-
-* Nei log di *Alert Notifier* compaiono errori di tipo:
-
-  ```text
-  org.springframework.mail.MailSendException
-  ```
-
-  o messaggi che indicano l’impossibilità di connettersi al server SMTP.
-
+* Il *Alert Notifier Service* non invia email o fallisce durante l’invio.
 * Le email attese non compaiono nella casella di destinazione (ad esempio in Mailtrap).
 
 *Verifiche e rimedi*
 
-1. Verificare che i parametri SMTP (host, porta, username, password, eventuali flag `MAIL_SMTP_AUTH` e `MAIL_SMTP_STARTTLS_ENABLE`) siano correttamente valorizzati nei file `.env` e coerenti con la configurazione del provider (ad esempio Mailtrap).
+1. Verificare che i parametri SMTP (host, porta, username, password, eventuali flag `MAIL_SMTP_AUTH` e `MAIL_SMTP_STARTTLS_ENABLE`) siano correttamente valorizzati in ConfigMap/Secret e coerenti con la configurazione del provider.
 
 2. Controllare, tramite i log di *Alert Notifier*, se l’errore è legato alla connessione (es. *connection timed out*), all’autenticazione (es. *535 Authentication failed*) o al rifiuto del messaggio da parte del server (es. *550 Message rejected*). Queste informazioni orientano la correzione:
 
@@ -2562,134 +3049,170 @@ Una volta completata la build, la fase di esecuzione può essere ostacolata da p
 
 4. In presenza di errori persistenti, abilitare un livello di logging più dettagliato per il package di posta (`org.springframework.mail` e affini) e ripetere l’invio di una notifica di test, analizzando con attenzione il dettaglio dello stack trace.
 
-#### 10.2.6 Comportamento del Circuit Breaker verso OpenSky
+#### 11.2.7 Prometheus non mostra metriche / target DOWN
 
 *Sintomi tipici*
 
-* Nei log del *Data Collector Service* compaiono messaggi che indicano lo stato del *circuit breaker* (ad esempio `OPEN`, `HALF_OPEN`, `CLOSED`).
-* Le richieste verso OpenSky vengono "saltate" immediatamente con errori applicativi interni, senza che venga effettuata una chiamata esterna effettiva.
+* La pagina **Status → Targets** mostra uno o più target in stato `DOWN`.
+* Le query in Prometheus non restituiscono serie temporali, oppure mostrano solo metriche di Prometheus stesso.
 
 *Verifiche e rimedi*
 
-1. Interpretare correttamente lo stato del *circuit breaker*:
+1. Verificare che Prometheus sia in esecuzione e raggiungibile via port-forward:
 
-   * **CLOSED** – il traffico verso OpenSky è normale;
-   * **OPEN** – il traffico viene bloccato a causa di un numero eccessivo di errori recenti;
-   * **HALF_OPEN** – vengono consentite solo alcune richieste di prova per verificare se il servizio esterno è tornato disponibile.
+   ```bash
+   kubectl -n dsbd get pods | grep prometheus
+   kubectl -n dsbd port-forward svc/prometheus 9090:9090
+   ```
 
-2. Se il circuito è in stato `OPEN` per un periodo prolungato, verificare:
+2. Verificare che i microservizi espongano effettivamente l’endpoint `/actuator/prometheus`. Un controllo rapido può essere effettuato con un port-forward diretto, ad esempio:
 
-   * la disponibilità effettiva delle API OpenSky (ad esempio eseguendo una chiamata manuale con `curl` o Postman utilizzando le stesse credenziali);
-   * la correttezza delle variabili d’ambiente e degli endpoint di autenticazione e API.
+   ```bash
+   kubectl -n dsbd port-forward svc/data-collector-service 8082:8082
+   curl http://localhost:8082/actuator/prometheus
+   ```
 
-3. Controllare la configurazione del *circuit breaker* (soglie di errore, finestra temporale, tempo di attesa prima del passaggio a `HALF_OPEN`). Valori troppo aggressivi possono portare ad aprire il circuito troppo spesso anche in presenza di errori temporanei.
+3. Verificare che i Service Kubernetes espongano le porte corrette e che gli Endpoints siano popolati:
 
-4. In fase di diagnosi, è possibile aumentare il livello di log per i componenti responsabili dell’integrazione con OpenSky e del *circuit breaker*, così da osservare in dettaglio:
+   ```bash
+   kubectl -n dsbd get svc
+   kubectl -n dsbd get endpoints data-collector-service
+   ```
 
-   * le eccezioni che contribuiscono all’apertura del circuito;
-   * il momento esatto in cui avviene il cambio di stato.
+4. Se i target risultano `DOWN` per timeout o `connection refused`, controllare:
+
+   * che il `metrics_path` configurato in Prometheus sia coerente (`/actuator/prometheus`);
+   * che i nomi DNS e le porte dei target corrispondano ai Service interni;
+   * che i Pod dei microservizi siano `Ready` (un Pod non pronto può rendere l’endpoint non raggiungibile).
 
 ---
 
-### 10.3 Verifiche passo-passo per isolare gli errori
+### 11.3 Verifiche passo-passo per isolare gli errori
 
-Le seguenti verifiche guidano un percorso **step-by-step** per isolare i problemi più comuni, partendo dallo strato di configurazione fino ai singoli container.
+Le seguenti verifiche guidano un percorso **step-by-step** per isolare i problemi più comuni, partendo dallo strato di configurazione fino ai singoli Pod.
 
-#### 10.3.1 Verifica variabili d’ambiente
+#### 11.3.1 Verifica variabili d’ambiente (ConfigMap/Secret)
 
-1. Controllare il contenuto dei file `.env` nella cartella `docker/env/` (`postgres.env`, `services.env`) e assicurarsi che non contengano valori evidentemente errati o placeholder.
-
-2. Dal terminale, verificare che le variabili critiche siano effettivamente visibili nel contesto da cui verrà lanciato `docker compose`. Ad esempio:
+1. Verificare che ConfigMap e Secret siano presenti nello stesso namespace di deploy e che contengano tutte le chiavi attese:
 
    ```bash
-   echo "$DB_HOST"
-   echo "$DB_USERNAME"
-   echo "$OPEN_SKY_CLIENT_ID"
+   kubectl -n dsbd get configmap
+   kubectl -n dsbd get secret
    ```
 
-   Se i valori non risultano impostati, è possibile che vengano letti esclusivamente dai file `.env` a livello di Docker Compose (in tal caso il controllo va effettuato leggendo direttamente tali file) o che sia necessario esportarli manualmente per l’esecuzione locale dei microservizi.
+2. Ispezionare una risorsa specifica per controllare valori e key:
 
-3. Verificare eventuali errori di digitazione nei nomi delle variabili, tanto nei file `.env` quanto nelle proprietà Spring Boot che le referenziano (ad esempio `${DB_HOST}` vs `${DB_HOSTNAME}`).
+   ```bash
+   kubectl -n dsbd describe configmap <configmap-name>
+   kubectl -n dsbd describe secret <secret-name>
+   ```
 
-4. Per i servizi introdotti nella seconda release, controllare in particolare:
+3. Verificare che le variabili critiche siano effettivamente disponibili nel Pod (la verifica è particolarmente utile per individuare mismatch tra key e `*KeyRef`):
 
-   * le variabili di configurazione di Kafka (ad esempio `KAFKA_BOOTSTRAP_SERVERS` e i nomi dei topic utilizzati da Alert System e Alert Notifier);
-   * le variabili relative al sistema di posta (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, eventuali flag SMTP).
+   ```bash
+   kubectl -n dsbd exec -it deploy/data-collector-service -- printenv | egrep "DB_|KAFKA_|OPEN_SKY_|MAIL_"
+   ```
 
-   Anche in questo caso è importante che i nomi utilizzati nei file `.env` coincidano con quelli referenziati nelle property Spring Boot.
+4. In caso di Secret, ricordare che i valori sono memorizzati in base64: per controllare un valore specifico è possibile decodificare la key:
 
-#### 10.3.2 Verifica delle porte occupate
+   ```bash
+   kubectl -n dsbd get secret <secret-name> -o jsonpath='{.data.<KEY>}' | base64 -d
+   ```
 
-1. Controllare che le porte configurate per PostgreSQL e per i microservizi non siano già occupate da altri processi sull’host. È possibile utilizzare comandi come:
+#### 11.3.2 Verifica delle porte occupate (port-forward)
+
+1. Se un comando `kubectl port-forward` fallisce con errore di porta occupata (`address already in use`), verificare che la porta locale non sia già utilizzata:
 
    * su sistemi Unix-like:
 
      ```bash
-     lsof -i :5432
      lsof -i :8080
      lsof -i :8081
+     lsof -i :9090
      ```
 
    * su Windows:
 
      ```powershell
-     netstat -ano | findstr ":5432"
      netstat -ano | findstr ":8080"
      netstat -ano | findstr ":8081"
+     netstat -ano | findstr ":9090"
      ```
 
-2. Se una porta risulta occupata, identificare il processo che la utilizza e valutare se può essere arrestato o se è opportuno modificare il port mapping nel `docker-compose.yml` o la porta di ascolto del servizio.
+2. Se la porta risulta occupata, è possibile:
 
-3. Dopo ogni modifica di port mapping, ricordarsi di aggiornare le configurazioni dei client (Postman, script di test) e le variabili di ambiente correlate (ad esempio `user_manager_base_url`, `data_collector_base_url` in Postman). In presenza di nuovi servizi esposti (come l’API Gateway o Kafka UI), verificare che anche le relative porte non vadano in conflitto con processi locali.
+   * terminare il processo che la utilizza;
+   * oppure cambiare la porta locale mantenendo invariata quella remota (es. `18080:80`).
 
-#### 10.3.3 Controllo dei log dei singoli container
+3. Dopo aver modificato la porta locale, aggiornare di conseguenza i client (Postman) e ogni configurazione che punta all’endpoint esposto.
 
-1. Elencare lo stato di tutti i servizi definiti in `docker-compose.yml`:
+#### 11.3.3 Controllo dei log dei singoli Pod
 
-   ```bash
-   cd docker
-   docker compose ps
-   ```
-
-   Verificare che tutti i container attesi siano in stato `running` o `healthy`.
-
-2. In caso di problemi con un servizio specifico, esaminare i log dedicati:
+1. Individuare il Pod specifico (o il Deployment) che presenta problemi:
 
    ```bash
-   docker compose logs user-manager-service
-   docker compose logs data-collector-service
-   docker compose logs postgres
+   kubectl -n dsbd get pods
    ```
 
-3. Per analizzare il comportamento in tempo reale, utilizzare l’opzione `-f`:
+2. Analizzare i log del componente:
 
    ```bash
-   docker compose logs -f user-manager-service
+   kubectl -n dsbd logs deploy/user-manager-service
+   kubectl -n dsbd logs deploy/data-collector-service
+   kubectl -n dsbd logs deploy/alert-system-service
+   kubectl -n dsbd logs deploy/alert-notifier-service
    ```
 
-   e ripetere le operazioni che causano l’errore (avvio del sistema, chiamate API di test) osservando i messaggi che compaiono.
+3. Per osservare il comportamento in tempo reale, utilizzare l’opzione `-f`:
 
-4. Prestare particolare attenzione a:
+   ```bash
+   kubectl -n dsbd logs -f deploy/data-collector-service
+   ```
+
+4. In presenza di restart, può essere utile ispezionare anche i log del container precedente:
+
+   ```bash
+   kubectl -n dsbd logs --previous deploy/data-collector-service
+   ```
+
+5. Prestare particolare attenzione a:
 
    * stack trace di eccezioni non gestite;
-   * errori di connessione verso database o servizi esterni;
-   * errori di validazione legati a input non conformi.
+   * errori di connessione verso database, Kafka o servizi esterni;
+   * errori di validazione legati a input non conformi;
+   * mismatch di configurazione (variabili mancanti o con nomi errati).
 
-5. Se nonostante l’analisi dei log il problema rimane poco chiaro, è possibile aumentare temporaneamente il livello di log per determinati package o componenti (ad esempio impostando il livello `DEBUG` per i package di integrazione con OpenSky o con PostgreSQL) attraverso le proprietà Spring Boot dedicate o file di configurazione del logging.
+#### 11.3.4 Verifica risorse Kubernetes (get/describe/events)
 
-6. Per la nuova pipeline di notifica, analizzare in particolare i log di:
+1. Ottenere una vista d’insieme delle risorse principali nel namespace:
 
    ```bash
-   docker compose logs alert-system-service
-   docker compose logs alert-notifier-service
-   docker compose logs kafka
+   kubectl -n dsbd get all
    ```
 
-   verificando la corretta produzione e consumazione dei messaggi, nonché la presenza di eventuali errori persistenti relativi alla serializzazione degli eventi, alla connessione con Kafka o all’invio delle email.
+2. Verificare lo stato dei Service e dei rispettivi Endpoints:
 
-## 11. Validation Scenarios
+   ```bash
+   kubectl -n dsbd get svc
+   kubectl -n dsbd get endpoints
+   ```
 
-### 11.1 Scenario minimo di smoke test
+3. In caso di Pod non schedulati (`Pending`) o con errori non evidenti nei log, controllare gli eventi ordinati temporalmente:
+
+   ```bash
+   kubectl -n dsbd get events --sort-by=.lastTimestamp
+   ```
+
+4. Utilizzare `describe` per ottenere una diagnostica completa (spec, env, volumi, probes, eventi):
+
+   ```bash
+   kubectl -n dsbd describe pod <pod-name>
+   kubectl -n dsbd describe deploy <deployment-name>
+   ```
+
+## 12. Validation Scenarios
+
+### 12.1 Scenario minimo di smoke test
 
 Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piattaforma sia in grado di:
 
@@ -2698,52 +3221,95 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
 * registrare interessi utente–aeroporto;
 * raccogliere e rendere disponibili dati di volo di base.
 
-#### 11.1.1 Avvio del sistema
+#### 12.1.1 Avvio del sistema
 
-1. Assicurarsi che i prerequisiti hardware e software siano soddisfatti (Docker e Docker Compose installati, risorse macchina adeguate) e che le variabili d’ambiente critiche siano state configurate.
+1. Assicurarsi che i prerequisiti hardware e software siano soddisfatti (Docker installato e operativo, **kind** e **kubectl** disponibili, risorse macchina adeguate) e che i file di configurazione Kubernetes siano stati valorizzati:
 
-2. Posizionarsi nella directory `docker/` della repository:
+   * `k8s/config/01-configmap.yaml` (parametri *non sensibili*);
+   * `k8s/config/02-secret.yaml` (credenziali e parametri *sensibili* in `stringData`).
+
+2. Costruire le immagini Docker dei microservizi (dalla **root** della repository):
+
+   *Linux/macOS (bash)*
 
    ```bash
-   cd docker
+   ./scripts/build-images.sh dev
    ```
 
-3. Avviare l’intero stack tramite Docker Compose:
+   *Windows (PowerShell)*
 
-   ```bash
-   docker compose up -d --build
+   ```powershell
+   ./scripts/build-images.ps1 -Tag dev
    ```
 
-   L’opzione `--build` forza la ricostruzione delle immagini Docker dei microservizi nel caso in cui siano state apportate modifiche al codice.
+3. Creare (o verificare) il cluster *kind* (dalla **root** della repository):
 
-4. Verificare lo stato dei container:
+   *Linux/macOS (bash)*
 
    ```bash
-   docker compose ps
+   ./scripts/kind/create-cluster.sh dsbd-local ./k8s/kind/kind-cluster.yaml
    ```
 
-   Tutti i container devono risultare in stato `running` o `healthy`.
+   *Windows (PowerShell)*
 
-5. Controllare rapidamente i log per accertarsi dell’assenza di errori gravi in fase di bootstrap:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts/kind/create-cluster.ps1 -ClusterName dsbd-local -ConfigFilePath k8s/kind/kind-cluster.yaml
+   ```
+
+4. Caricare le immagini nel cluster *kind* (dalla **root** della repository):
+
+   *Linux/macOS (bash)*
 
    ```bash
-   docker compose logs --tail=100
+   ./scripts/kind/load-images.sh dev dsbd-local
+   ```
+
+   *Windows (PowerShell)*
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts/kind/load-images.ps1 -Tag dev -Cluster dsbd-local
+   ```
+
+5. Deploy dello stack su Kubernetes tramite Kustomize:
+
+   ```bash
+   kubectl apply -k k8s
+   ```
+
+6. Verificare lo stato delle risorse:
+
+   ```bash
+   kubectl -n dsbd get pods
+   ```
+
+   Tutti i Pod devono risultare in stato `Running` con *Readiness* a `1/1` (o `N/N` in caso di più container).
+
+7. Controllare rapidamente i log per accertarsi dell’assenza di errori gravi in fase di bootstrap:
+
+   ```bash
+   kubectl -n dsbd logs --tail=100 deploy/postgres
+   kubectl -n dsbd logs --tail=100 deploy/user-manager-service
+   kubectl -n dsbd logs --tail=100 deploy/data-collector-service
    ```
 
    In particolare, è opportuno verificare che:
 
    * PostgreSQL sia operativo e pronto ad accettare connessioni;
    * le migrazioni Flyway siano state applicate con successo;
-   * i microservizi Spring Boot abbiano esposto le rispettive porte HTTP senza errori di binding.
+   * i microservizi Spring Boot abbiano completato la fase di startup senza errori di configurazione.
 
-#### 11.1.2 Creazione di un utente di test
+#### 12.1.2 Creazione di un utente di test
 
-1. Identificare la porta di esposizione del *User Manager Service* sull’host (ad esempio `<HOST_PORT_UMS>`, tipicamente `8081` in ambiente Docker Compose).
+1. Esporre localmente l’**API Gateway** tramite *port-forward* (mantenere il comando in esecuzione in un terminale dedicato):
+
+   ```bash
+   kubectl -n dsbd port-forward svc/api-gateway 8080:80
+   ```
 
 2. Inviare una richiesta `POST` all’endpoint di creazione utente, ad esempio tramite `curl` o Postman:
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_UMS>/api/users" \
+   curl -i -X POST "http://localhost:8080/api/users" \
      -H "Content-Type: application/json" \
      -d '{
        "email": "smoke.user@example.com",
@@ -2758,7 +3324,13 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
    * la risposta attesa è `200 OK` con il medesimo utente;
    * nel database `userdb` deve risultare **una sola** riga per l’indirizzo email indicato.
 
-5. Controllare la tabella `users` sul database `userdb` per verificare la presenza dell’utente:
+5. Esporre localmente PostgreSQL (in un secondo terminale) per consentire la verifica tramite client SQL / estensione VSCode:
+
+   ```bash
+   kubectl -n dsbd port-forward svc/postgres 15432:5432
+   ```
+
+6. Controllare la tabella `users` sul database `userdb` per verificare la presenza dell’utente:
 
    ```sql
    SELECT id, email, name
@@ -2768,16 +3340,14 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
 
    Deve risultare un singolo record coerente con i dati inviati.
 
-#### 11.1.3 Registrazione di un interesse per un aeroporto
+#### 12.1.3 Registrazione di un interesse per un aeroporto
 
-1. Identificare la porta di esposizione del *Data Collector Service* sull’host (ad esempio `<HOST_PORT_DCS>`, tipicamente `8082` in ambiente Docker Compose).
+1. Se necessario, elencare gli aeroporti registrati nella tabella `airports` (database `datadb`) per scegliere un codice valido (ad esempio `LICC`, `LIMC`, `LIRF`, `LIML`).
 
-2. Se necessario, elencare gli aeroporti registrati nella tabella `airports` per scegliere un codice valido (ad esempio `LICC`, `LIMC`, `LIRF`, `LIML`).
-
-3. Inviare una richiesta `POST` all’endpoint di registrazione dell’interesse:
+2. Inviare una richiesta `POST` all’endpoint di registrazione dell’interesse (tramite API Gateway):
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_DCS>/api/interests" \
+   curl -i -X POST "http://localhost:8080/api/interests" \
      -H "Content-Type: application/json" \
      -d '{
        "userEmail": "smoke.user@example.com",
@@ -2785,9 +3355,9 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
      }'
    ```
 
-4. Verificare che la risposta sia `201 Created` e che il payload restituito contenga l’associazione utente–aeroporto attesa.
+3. Verificare che la risposta sia `201 Created` e che il payload restituito contenga l’associazione utente–aeroporto attesa.
 
-5. Controllare sul database `datadb` l’effettiva creazione dell’interesse nella tabella `user_airport_interest`:
+4. Controllare sul database `datadb` l’effettiva creazione dell’interesse nella tabella `user_airport_interest`:
 
    ```sql
    SELECT user_email, airport_code
@@ -2798,9 +3368,13 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
 
    Deve risultare un singolo record coerente con i dati appena inseriti.
 
-#### 11.1.4 Verifica del popolamento dei dati di volo
+#### 12.1.4 Verifica del popolamento dei dati di volo
 
-1. Verificare, nei log del *Data Collector Service*, che siano attivi i job schedulati di raccolta dei voli da OpenSky e di persistenza nel database `datadb`.
+1. Verificare, nei log del *Data Collector Service*, che siano attivi i job schedulati di raccolta dei voli da OpenSky e di persistenza nel database `datadb`:
+
+   ```bash
+   kubectl -n dsbd logs -f deploy/data-collector-service
+   ```
 
 2. Attendere alcuni cicli di raccolta (in funzione della configurazione dell’intervallo di scheduling).
 
@@ -2816,20 +3390,22 @@ Lo scenario di *smoke test* ha l’obiettivo di verificare che l’intera piatta
 
    Devono risultare presenti uno o più record coerenti con la semantica di raccolta implementata.
 
-4. In alternativa o in aggiunta, utilizzare l’API REST di interrogazione dei voli (descritta nello scenario 11.3) per ottenere i dati di volo relativi all’aeroporto monitorato, su una finestra temporale recente.
+4. In alternativa o in aggiunta, utilizzare l’API REST di interrogazione dei voli (descritta nello scenario 12.3) per ottenere i dati di volo relativi all’aeroporto monitorato, su una finestra temporale recente.
 
-### 11.2 Scenario di test della politica at-most-once
+---
+
+### 12.2 Scenario di test della politica at-most-once
 
 Questo scenario verifica che la creazione di utenti sia *idempotente* rispetto all’indirizzo email, ovvero che più richieste di registrazione con gli stessi dati non producano duplicati nel database.
 
-#### 11.2.1 Ripetizione di una registrazione utente
+#### 12.2.1 Ripetizione di una registrazione utente
 
-1. Assicurarsi che il *User Manager Service* sia avviato e raggiungibile sull’host, come nello scenario 11.1.2.
+1. Assicurarsi che l’API Gateway sia esposto sull’host, come nello scenario 12.1.2.
 
 2. Inviare una prima richiesta `POST` di creazione utente:
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_UMS>/api/users" \
+   curl -i -X POST "http://localhost:8080/api/users" \
      -H "Content-Type: application/json" \
      -d '{
        "email": "atmost.user@example.com",
@@ -2842,7 +3418,7 @@ Questo scenario verifica che la creazione di utenti sia *idempotente* rispetto a
 3. Ripetere la richiesta con **lo stesso** payload:
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_UMS>/api/users" \
+   curl -i -X POST "http://localhost:8080/api/users" \
      -H "Content-Type: application/json" \
      -d '{
        "email": "atmost.user@example.com",
@@ -2852,7 +3428,7 @@ Questo scenario verifica che la creazione di utenti sia *idempotente* rispetto a
 
 4. Verificare che la seconda risposta sia `200 OK` e che il corpo contenga i dati dell’utente già esistente, senza creare un nuovo record.
 
-#### 11.2.2 Comportamento atteso (assenza di duplicati, codici HTTP attesi)
+#### 12.2.2 Comportamento atteso (assenza di duplicati, codici HTTP attesi)
 
 1. Interrogare la tabella `users` del database `userdb` per verificare il numero di record associati all’indirizzo email di test:
 
@@ -2871,18 +3447,20 @@ Questo scenario verifica che la creazione di utenti sia *idempotente* rispetto a
 
 3. Facoltativamente, ripetere il test con altri indirizzi email per verificare che la semantica sia applicata in modo uniforme.
 
-### 11.3 Scenario di interrogazione dei voli su intervalli temporali
+---
+
+### 12.3 Scenario di interrogazione dei voli su intervalli temporali
 
 Questo scenario verifica il corretto funzionamento dell’API di interrogazione dei voli su intervalli temporali, con particolare attenzione alla coerenza tra i dati restituiti e quelli memorizzati nel database `datadb`.
 
-1. Assicurarsi che siano stati raccolti dati di volo per almeno un aeroporto (ad esempio `LICC`), come descritto nello scenario 11.1.4.
+1. Assicurarsi che siano stati raccolti dati di volo per almeno un aeroporto (ad esempio `LICC`), come descritto nello scenario 12.1.4.
 
 2. Identificare una finestra temporale di interesse (ad esempio le ultime due ore), espressa in UNIX timestamp o nel formato richiesto dall’API.
 
-3. Inviare una richiesta `GET` all’endpoint di interrogazione dei voli del *Data Collector Service*:
+3. Inviare una richiesta `GET` all’endpoint di interrogazione dei voli (tramite API Gateway):
 
    ```bash
-   curl -s "http://localhost:<HOST_PORT_DCS>/api/flights?airport=LICC&from=<FROM_TS>&to=<TO_TS>"
+   curl -s "http://localhost:8080/api/flights?airport=LICC&from=<FROM_TS>&to=<TO_TS>"
    ```
 
 4. Verificare che la risposta contenga una lista di voli coerente con le aspettative, ad esempio controllando:
@@ -2910,11 +3488,13 @@ Questo scenario verifica il corretto funzionamento dell’API di interrogazione 
    * valori di `from`/`to` non validi o invertiti (con la restituzione di errori HTTP adeguati);
    * codice aeroporto non presente nella tabella `airports`.
 
-### 11.4 Scenario di configurazione e valutazione delle soglie
+---
+
+### 12.4 Scenario di configurazione e valutazione delle soglie
 
 Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttamente la configurazione delle soglie di traffico associate agli interessi utente–aeroporto e che tali soglie vengano effettivamente considerate nella valutazione dei volumi di volo aggregati sulle finestre temporali.
 
-#### 11.4.1 Creazione di un interesse con `highValue`/`lowValue`
+#### 12.4.1 Creazione di un interesse con `highValue`/`lowValue`
 
 1. Assicurarsi che lo stack applicativo sia in esecuzione, con in particolare attivi:
 
@@ -2927,23 +3507,23 @@ Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttam
 2. Creare (o riutilizzare) un utente dedicato ai test di soglia, ad esempio:
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_UMS>/api/users" \\
-     -H "Content-Type: application/json" \\
+   curl -i -X POST "http://localhost:8080/api/users" \
+     -H "Content-Type: application/json" \
      -d '{
        "email": "threshold.user@example.com",
        "name": "Threshold User"
      }'
    ```
 
-   La risposta attesa è `201 Created` alla prima invocazione ed `200 OK` alle eventuali invocazioni successive, in linea con la semantica *at-most-once* descritta nello scenario 11.2.
+   La risposta attesa è `201 Created` alla prima invocazione ed `200 OK` alle eventuali invocazioni successive, in linea con la semantica *at-most-once* descritta nello scenario 12.2.
 
 3. Scegliere un aeroporto tra quelli presenti nella tabella `airports`, ad esempio `LIMC` (Milano Malpensa) o `LIRF` (Roma Fiumicino).
 
 4. Creare un interesse utente–aeroporto impostando esplicitamente i campi di soglia `highValue` e/o `lowValue`. A titolo di esempio, per configurare una soglia *alta* molto bassa (in modo da facilitare il superamento):
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_DCS>/api/interests" \\
-     -H "Content-Type: application/json" \\
+   curl -i -X POST "http://localhost:8080/api/interests" \
+     -H "Content-Type: application/json" \
      -d '{
        "userEmail": "threshold.user@example.com",
        "airportCode": "LIMC",
@@ -2955,8 +3535,8 @@ Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttam
    In alternativa, è possibile configurare anche una soglia *bassa*:
 
    ```bash
-   curl -i -X POST "http://localhost:<HOST_PORT_DCS>/api/interests" \\
-     -H "Content-Type: application/json" \\
+   curl -i -X POST "http://localhost:8080/api/interests" \
+     -H "Content-Type: application/json" \
      -d '{
        "userEmail": "threshold.user@example.com",
        "airportCode": "LIMC",
@@ -2970,7 +3550,7 @@ Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttam
 5. Verificare che l’interesse sia stato creato correttamente tramite l’API di lettura:
 
    ```bash
-   curl -s "http://localhost:<HOST_PORT_DCS>/api/interests?userEmail=threshold.user@example.com"
+   curl -s "http://localhost:8080/api/interests?userEmail=threshold.user@example.com"
    ```
 
    Il payload di risposta deve contenere l’interesse associato all’aeroporto scelto, con i campi `highValue` e `lowValue` valorizzati secondo la configurazione inviata.
@@ -2986,27 +3566,33 @@ Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttam
 
    I valori presenti nelle colonne `high_value` e `low_value` devono essere coerenti con quelli specificati nel payload REST.
 
-#### 11.4.2 Generazione di un carico di voli che superi la soglia
+#### 12.4.2 Generazione di un carico di voli che superi la soglia
 
 1. Assicurarsi che esistano uno o più interessi con soglie impostate per l’aeroporto scelto, come descritto nel punto precedente.
 
-2. Verificare che il *Flight Collection Scheduler* del *Data Collector Service* sia in esecuzione, controllando i log del container:
+2. Verificare che il *Flight Collection Scheduler* del *Data Collector Service* sia in esecuzione, controllando i log del Deployment:
 
    ```bash
-   cd docker
-   docker compose logs -f data-collector-service
+   kubectl -n dsbd logs -f deploy/data-collector-service
    ```
 
    Nei log devono comparire periodicamente messaggi che indicano l’avvio e il completamento dei cicli di raccolta, con l’indicazione della finestra temporale elaborata.
 
-3. Monitorare, tramite **Kafka UI**, il topic `to-alert-system` su cui il *Data Collector Service* pubblica gli eventi `FlightCollectionWindowUpdateEvent`:
+3. Esporre **Kafka UI** tramite *port-forward* (in un terminale dedicato):
 
-   * aprire la Kafka UI all’indirizzo `http://localhost:8085`;
+   ```bash
+   kubectl -n dsbd port-forward svc/kafka-ui 8085:8080
+   ```
+
+   Accedere quindi all’interfaccia web all’indirizzo `http://localhost:8085`.
+
+4. Monitorare il topic `to-alert-system` su cui il *Data Collector Service* pubblica gli eventi `FlightCollectionWindowUpdateEvent`:
+
    * selezionare il cluster configurato;
    * individuare il topic `to-alert-system`;
    * ispezionare i messaggi più recenti.
 
-4. Per ciascun messaggio di tipo `FlightCollectionWindowUpdateEvent`, analizzare il campo `airports`, che contiene una lista di snapshot `AirportFlightsWindowSnapshot`. Per l’aeroporto configurato (ad esempio `LIMC`) verificare i campi:
+5. Per ciascun messaggio di tipo `FlightCollectionWindowUpdateEvent`, analizzare il campo `airports`, che contiene una lista di snapshot `AirportFlightsWindowSnapshot`. Per l’aeroporto configurato (ad esempio `LIMC`) verificare i campi:
 
    * `arrivalsCount`;
    * `departuresCount`.
@@ -3017,30 +3603,32 @@ Questo scenario ha l’obiettivo di verificare che il sistema gestisca correttam
    totalFlights = arrivalsCount + departuresCount
    ```
 
-5. Scegliere un messaggio in cui `totalFlights` risulti coerente con le soglie impostate. Ad esempio:
+6. Scegliere un messaggio in cui `totalFlights` risulti coerente con le soglie impostate. Ad esempio:
 
    * per testare una violazione *HIGH*, è opportuno che `totalFlights` sia **maggiore** di `highValue`;
    * per testare una violazione *LOW*, è opportuno che `totalFlights` sia **minore** di `lowValue`.
 
-6. Osservare i log dell’*Alert System Service*:
+7. Osservare i log dell’*Alert System Service*:
 
    ```bash
-   docker compose logs -f alert-system-service
+   kubectl -n dsbd logs -f deploy/alert-system-service
    ```
 
    In corrispondenza dell’elaborazione di un evento con `totalFlights` fuori soglia devono essere presenti log di pubblicazione di una notifica di superamento soglia verso Kafka, con indicazione del tipo di violazione (`HIGH` o `LOW`), dell’aeroporto e dell’utente interessato.
 
-7. Facoltativamente, verificare nuovamente da Kafka UI che sul topic `to-notifier` siano presenti messaggi `ThresholdBreachNotificationEvent` coerenti con le soglie e con i conteggi osservati sul topic `to-alert-system`.
+8. Facoltativamente, verificare nuovamente da Kafka UI che sul topic `to-notifier` siano presenti messaggi `ThresholdBreachNotificationEvent` coerenti con le soglie e con i conteggi osservati sul topic `to-alert-system`.
 
-### 11.5 Scenario end-to-end della pipeline di notifica
+---
+
+### 12.5 Scenario end-to-end della pipeline di notifica
 
 Questo scenario ha lo scopo di verificare il funzionamento end-to-end della pipeline di notifica, dalla pubblicazione degli aggiornamenti di traffico sul topic Kafka `to-alert-system` fino all’invio delle email di alert tramite l’*Alert Notifier Service* e l’infrastruttura SMTP configurata (ad esempio Mailtrap).
 
-#### 11.5.1 Pubblicazione su `to-alert-system` e propagazione su `to-notifier`
+#### 12.5.1 Pubblicazione su `to-alert-system` e propagazione su `to-notifier`
 
 1. Assicurarsi che siano soddisfatte le seguenti condizioni:
 
-   * esista almeno un interesse con soglie configurate per un aeroporto, come descritto nello scenario 11.4;
+   * esista almeno un interesse con soglie configurate per un aeroporto, come descritto nello scenario 12.4;
    * lo *User Manager Service*, il *Data Collector Service*, l’*Alert System Service* e il broker Kafka siano in esecuzione;
    * il *Flight Collection Scheduler* del *Data Collector Service* sia attivo.
 
@@ -3064,20 +3652,21 @@ Questo scenario ha lo scopo di verificare il funzionamento end-to-end della pipe
      * `actualValue` (numero di voli osservati);
      * `thresholdValue` (valore di soglia);
      * `windowBegin` e `windowEnd`;
-       siano coerenti con i dati pubblicati in precedenza sul topic `to-alert-system`.
+
+     siano coerenti con i dati pubblicati in precedenza sul topic `to-alert-system`.
 
 5. Monitorare in parallelo i log di *Alert System Service* e *Alert Notifier Service*:
 
    ```bash
-   docker compose logs -f alert-system-service
-   docker compose logs -f alert-notifier-service
+   kubectl -n dsbd logs -f deploy/alert-system-service
+   kubectl -n dsbd logs -f deploy/alert-notifier-service
    ```
 
    Nei log dell’Alert System devono comparire messaggi informativi relativi alla pubblicazione delle notifiche di superamento soglia; nei log dell’Alert Notifier devono comparire messaggi che attestano il consumo delle notifiche da Kafka e l’inoltro verso il servizio di posta.
 
-#### 11.5.2 Verifica finale della ricezione email
+#### 12.5.2 Verifica finale della ricezione email
 
-1. Configurare correttamente le variabili d’ambiente SMTP (ad esempio Mailtrap) nel file `docker/env/services.env`, assicurandosi che i parametri:
+1. Configurare correttamente le variabili d’ambiente SMTP (ad esempio Mailtrap) nel file `k8s/config/02-secret.yaml`, assicurandosi che i parametri:
 
    * `MAIL_HOST`;
    * `MAIL_PORT`;
@@ -3089,14 +3678,21 @@ Questo scenario ha lo scopo di verificare il funzionamento end-to-end della pipe
 
    siano coerenti con l’account di test utilizzato.
 
-2. Accedere all’interfaccia web del provider SMTP di test (ad esempio Mailtrap) e selezionare la inbox configurata per l’ambiente di sviluppo.
+2. Riapplicare la configurazione e riavviare il Deployment dell’Alert Notifier per rendere effettive le modifiche:
 
-3. Generare un carico di voli che porti al superamento di almeno una soglia (`HIGH` o `LOW`) per uno degli interessi configurati, come descritto nello scenario 11.4.2:
+   ```bash
+   kubectl apply -k k8s
+   kubectl -n dsbd rollout restart deploy/alert-notifier-service
+   ```
+
+3. Accedere all’interfaccia web del provider SMTP di test (ad esempio Mailtrap) e selezionare la inbox configurata per l’ambiente di sviluppo.
+
+4. Generare un carico di voli che porti al superamento di almeno una soglia (`HIGH` o `LOW`) per uno degli interessi configurati, come descritto nello scenario 12.4.2:
 
    * attendere l’esecuzione di uno o più cicli del *Flight Collection Scheduler*;
    * verificare, se necessario, da Kafka UI che sul topic `to-notifier` siano presenti nuove notifiche di superamento soglia.
 
-4. Controllare la inbox del provider SMTP di test e verificare la presenza di una o più email indirizzate all’utente configurato (ad esempio `threshold.user@example.com`). Per ciascuna email verificare che:
+5. Controllare la inbox del provider SMTP di test e verificare la presenza di una o più email indirizzate all’utente configurato (ad esempio `threshold.user@example.com`). Per ciascuna email verificare che:
 
    * l’oggetto contenga un riferimento esplicito al tipo di violazione (`HIGH`/`LOW`) e all’aeroporto interessato;
    * il corpo del messaggio riporti in modo chiaro:
@@ -3107,74 +3703,181 @@ Questo scenario ha lo scopo di verificare il funzionamento end-to-end della pipe
      * il valore di soglia (`thresholdValue`);
      * la finestra temporale (`windowBegin`–`windowEnd`) a cui si riferisce la valutazione.
 
-5. Mantenendo aperti i log dell’*Alert Notifier Service*, verificare che l’invio delle email sia accompagnato da messaggi di log coerenti (costruzione del subject/body, tentativo di invio, eventuale gestione di errori SMTP).
+6. Mantenendo aperti i log dell’*Alert Notifier Service*, verificare che l’invio delle email sia accompagnato da messaggi di log coerenti (costruzione del subject/body, tentativo di invio, eventuale gestione di errori SMTP).
 
-### 11.6 Scenario con indisponibilità di OpenSky e Circuit Breaker attivo
+---
 
-Questo scenario verifica il comportamento del sistema in presenza di indisponibilità o forte degrado del servizio OpenSky, con particolare attenzione al corretto funzionamento del **Circuit Breaker** configurato sull’`OpenSkyClient` del *Data Collector Service* e all’impatto sulla pipeline di raccolta dati e di alerting.
+### 12.6 Scenario con indisponibilità di OpenSky e Circuit Breaker attivo
 
-1. Identificare la configurazione corrente dell’endpoint OpenSky nel file `docker/env/services.env`, in corrispondenza delle variabili:
+Questo scenario verifica il comportamento del sistema in presenza di indisponibilità o forte degrado del servizio **OpenSky**, con particolare attenzione al corretto funzionamento del *Circuit Breaker* configurato sull’`OpenSkyClient` del *Data Collector Service* e all’impatto sulla pipeline di raccolta dati e di alerting.
+
+1. Identificare la configurazione corrente di OpenSky, valorizzata tramite **Secret** Kubernetes (file `k8s/config/02-secret.yaml`) e iniettata nel Deployment del *Data Collector Service*. In particolare, risultano rilevanti le variabili:
 
    * `OPENSKY_AUTH_URL`;
    * `OPENSKY_API_URL`;
    * `OPENSKY_CLIENT_ID`;
    * `OPENSKY_CLIENT_SECRET`.
 
-2. Per simulare l’indisponibilità di OpenSky, modificare temporaneamente il valore di `OPENSKY_API_URL` impostando un host non raggiungibile o un endpoint fittizio, ad esempio:
+2. Per simulare l’indisponibilità di OpenSky, modificare temporaneamente il valore di `OPENSKY_API_URL` impostando un endpoint non raggiungibile (host inesistente o URL fittizia). Ad esempio:
 
-   ```env
-   OPENSKY_API_URL=https://invalid-opensky-endpoint.local/api
+   ```yaml
+   OPENSKY_API_URL: https://invalid-opensky-endpoint.local/api
    ```
 
-   Salvare il file e riavviare almeno il *Data Collector Service*:
+   *Nota operativa*: se il Secret è espresso tramite `stringData`, il valore può essere inserito in chiaro; se invece è espresso tramite `data`, occorre riportare il valore in **Base64**. In entrambi i casi, l’obiettivo è produrre nel cluster la stessa variabile d’ambiente con URL “non raggiungibile”.
+
+3. Applicare la modifica nel cluster (stesso flusso di deploy usato per lo stack):
 
    ```bash
-   cd docker
-   docker compose up -d --build data-collector-service
+   kubectl apply -k k8s/stack
    ```
 
-3. Monitorare i log del *Data Collector Service*:
+4. Riavviare il *Data Collector Service* affinché rilegga la configurazione aggiornata:
 
    ```bash
-   docker compose logs -f data-collector-service
+   kubectl -n dsbd rollout restart deploy/data-collector-service
    ```
 
-   Dopo alcuni cicli del *Flight Collection Scheduler* devono comparire messaggi che indicano errori nelle chiamate verso OpenSky (errori HTTP o di rete) e l’attivazione del **fallback** associato al Circuit Breaker, con evidenza del fatto che viene restituita una lista vuota di voli per la finestra considerata.
-
-4. Verificare che, nonostante i fallimenti verso OpenSky, il processo schedulato continui a essere eseguito regolarmente e che il microservizio non vada in crash. Nei log non devono comparire eccezioni non gestite né arresti del contesto Spring Boot.
-
-5. Controllare tramite Kafka UI il topic `to-alert-system` durante il periodo di indisponibilità simulata:
-
-   * in assenza di nuovi dati di volo per gli aeroporti monitorati, il *Data Collector Service* potrebbe non pubblicare nuovi eventi `FlightCollectionWindowUpdateEvent`;
-   * qualora vengano comunque pubblicati eventi, gli snapshot `AirportFlightsWindowSnapshot` per gli aeroporti interessati dovranno avere conteggi `arrivalsCount` e `departuresCount` pari a zero, coerentemente con il fallback del Circuit Breaker.
-
-6. Verificare i log dell’*Alert System Service*:
+5. Monitorare i log del *Data Collector Service*:
 
    ```bash
-   docker compose logs -f alert-system-service
+   kubectl -n dsbd logs -f deploy/data-collector-service
+   ```
+
+   Dopo alcuni cicli del *Flight Collection Scheduler* devono comparire messaggi che indicano errori nelle chiamate verso OpenSky (errori HTTP o di rete) e l’attivazione del **fallback** associato al *Circuit Breaker*, con evidenza del fatto che viene restituita una lista vuota di voli (o comunque un risultato degradato) per la finestra considerata.
+
+6. Verificare che, nonostante i fallimenti verso OpenSky, il processo schedulato continui a essere eseguito regolarmente e che il microservizio **non vada in crash**. In particolare, non devono essere presenti eccezioni non gestite né arresti del contesto applicativo.
+
+7. Controllare tramite **Kafka UI** il topic `to-alert-system` durante il periodo di indisponibilità simulata, utilizzando l’accesso via *port-forward*:
+
+   ```bash
+   kubectl -n dsbd port-forward svc/kafka-ui 8085:8080
+   ```
+
+   * `http://localhost:8085` → individuare il topic `to-alert-system` e ispezionare i messaggi più recenti.
+
+   In funzione della logica implementata:
+
+   * il *Data Collector Service* potrebbe **non pubblicare** nuovi eventi `FlightCollectionWindowUpdateEvent` in assenza di dati;
+   * oppure potrebbe pubblicare eventi con snapshot `AirportFlightsWindowSnapshot` aventi conteggi `arrivalsCount` e `departuresCount` pari a **zero**, coerentemente con il fallback.
+
+8. Verificare i log dell’*Alert System Service*:
+
+   ```bash
+   kubectl -n dsbd logs -f deploy/alert-system-service
    ```
 
    In corrispondenza degli eventuali eventi ricevuti da `to-alert-system`, il servizio deve:
 
-   * evitare eccezioni legate a dati mancanti;
-   * non generare notifiche di superamento soglia spurie (in assenza di traffico reale);
-   * loggare l’assenza di interessi con soglie associate, ove applicabile, o l’assenza di violazioni di soglia per gli snapshot ricevuti.
+   * evitare eccezioni legate a dati mancanti o nulli;
+   * non generare notifiche spurie in assenza di traffico reale;
+   * loggare correttamente l’assenza di violazioni di soglia (o l’assenza di interessi applicabili) sugli snapshot elaborati.
 
-7. Interrogare l’API di lettura dei voli per uno degli aeroporti monitorati, su una finestra temporale ricadente nel periodo di indisponibilità simulata:
-
-   ```bash
-   curl -s "http://localhost:<HOST_PORT_DCS>/api/flights?airport=LIMC&from=...&to=..."
-   ```
-
-   La risposta deve contenere un numero di record coerente con il comportamento del fallback (tipicamente zero nuovi voli registrati nel periodo di fault).
-
-8. Ripristinare la configurazione corretta di `OPENSKY_API_URL` nel file `services.env` e riavviare il *Data Collector Service*:
+9. Interrogare l’API di lettura dei voli per uno degli aeroporti monitorati su una finestra temporale ricadente nel periodo di indisponibilità simulata. Utilizzando l’accesso via *API Gateway* (port-forward):
 
    ```bash
-   OPENSKY_API_URL=https://opensky-network.org/api
-
-   cd docker
-   docker compose up -d --build data-collector-service
+   kubectl -n dsbd port-forward svc/api-gateway 8080:80
    ```
 
-   Dopo il ripristino, verificare che i log del *Data Collector Service* tornino a mostrare chiamate verso OpenSky concluse con successo e che la raccolta periodica dei voli riprenda a popolare la tabella `flight_records` e, se configurate soglie adeguate, a generare nuovamente eventi di aggiornamento verso Kafka.
+   Eseguire quindi una richiesta coerente con gli endpoint esposti dal gateway, ad esempio:
+
+   ```bash
+   curl -s "http://localhost:8080/api/flights?airport=LIMC&from=...&to=..."
+   ```
+
+   La risposta deve contenere un numero di record coerente con il comportamento del fallback (tipicamente *assenza di nuovi voli registrati nel periodo di fault*).
+
+10. Ripristinare la configurazione corretta di `OPENSKY_API_URL` nel Secret (file `k8s/config/02-secret.yaml`) e riapplicare lo stack:
+
+```bash
+kubectl apply -k k8s/stack
+kubectl -n dsbd rollout restart deploy/data-collector-service
+```
+
+Dopo il ripristino, verificare dai log del *Data Collector Service* che le chiamate verso OpenSky tornino a completarsi con successo e che la raccolta periodica riprenda a popolare la tabella `flight_records` e, se configurate soglie adeguate, a produrre nuovamente eventi di aggiornamento verso Kafka.
+
+### 12.7 Scenario di verifica del monitoring (metriche e label)
+
+Questo scenario verifica che:
+
+* i target Prometheus risultino *UP*;
+* le metriche di tipo **COUNTER** e **GAUGE** siano effettivamente esposte e aggiornate a seguito di workload;
+* le serie possano essere filtrate/aggregate per label riconducibili a *service* e *node* (tipicamente `job` e `instance` in Prometheus).
+
+#### 12.7.1 Verifica target UP in Prometheus
+
+1. Esporre Prometheus tramite *port-forward*:
+
+   ```bash
+   kubectl -n dsbd port-forward svc/prometheus 9090:9090
+   ```
+
+2. Accedere all’interfaccia Prometheus su `http://localhost:9090`.
+
+3. Aprire **Status → Targets** e verificare che i job relativi ai microservizi applicativi risultino `UP`.
+
+#### 12.7.2 Verifica COUNTER (incremento su workload)
+
+1. Generare workload applicativo ripetendo più volte:
+
+   * creazione utente (`POST /api/users`);
+   * registrazione interesse (`POST /api/interests`);
+   * interrogazione voli (`GET /api/flights?...`).
+
+2. In Prometheus, eseguire query di tipo *rate* su una finestra temporale breve. Esempi:
+
+   ```promql
+   rate(opensky_requests_total[5m])
+   ```
+
+   ```promql
+   rate(alert_system_evaluations_total[5m])
+   ```
+
+   ```promql
+   rate(email_sent_total[5m])
+   ```
+
+3. In presenza di traffico, le query devono restituire valori *non nulli* (serie temporali valorizzate).
+
+#### 12.7.3 Verifica GAUGE (valore istantaneo)
+
+1. Eseguire query istantanee su metriche GAUGE di riferimento. Esempi:
+
+   ```promql
+   opensky_last_fetch_duration_ms
+   ```
+
+   ```promql
+   alert_system_last_eval_duration_ms
+   ```
+
+   ```promql
+   email_last_send_duration_ms
+   ```
+
+2. Dopo l’esecuzione di workload (o dopo l’elaborazione di notifiche), i valori devono risultare aggiornati e coerenti con l’ordine di grandezza atteso (unità *millisecondi*).
+
+#### 12.7.4 Verifica label `service` e `node`
+
+1. Verificare la disponibilità e l’utilizzabilità delle label (tipicamente `job` come identificatore di *service* e `instance` come identificatore di *node*):
+
+   ```promql
+   sum by (job) (rate(opensky_requests_total[5m]))
+   ```
+
+   ```promql
+   sum by (job, instance) (rate(alert_system_notifications_total[5m]))
+   ```
+
+2. Verificare che il filtraggio per singolo servizio produca serie coerenti:
+
+   ```promql
+   rate(opensky_requests_total{job="data-collector"}[5m])
+   ```
+
+   ```promql
+   rate(alert_notifier_notifications_consumed_total{job="alert-notifier"}[5m])
+   ```
+
+3. Se risultano presenti più repliche (*replicas* > 1), verificare che l’aggregazione per `instance` distingua correttamente le sorgenti e che l’aggregazione per `job` permetta di ottenere un valore complessivo a livello di servizio.
